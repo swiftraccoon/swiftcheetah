@@ -1,0 +1,70 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Vim/Emacs/Editors
+*~
+*.swp
+*.swo
+*.tmp
+
+# Xcode
+DerivedData/
+build/
+*.xccheckout
+*.xcscmblueprint
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+
+# SwiftPM
+.swiftpm/
+.build/
+Package.resolved
+
+# SwiftLint
+.swiftlint_cache
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Logs
+*.log
+
+# Node/npm (for submodules or examples)
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# Coverage/Reports
+coverage/
+*.gcda
+*.gcno
+*.lcov
+
+# General archives
+*.zip
+*.tar.gz
+*.tgz
+
+# Ignore documentation except top-level README
+*.md
+!README.md
+
