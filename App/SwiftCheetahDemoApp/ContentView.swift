@@ -22,11 +22,12 @@ struct ContentView: View {
                         VStack(spacing: 20) {
                             BroadcastSettingsCard(periph: periph)
                             SimulationControlsCard(periph: periph)
+                            PerformanceGraphCard(stats: periph.stats)
                         }
                         .frame(maxWidth: .infinity)
 
                         LiveMetricsCard(stats: periph.stats)
-                            .frame(width: 320)
+                            .frame(width: 380)
                     }
                     .padding(.horizontal, 20)
 
@@ -298,6 +299,12 @@ struct SimulationControlsCard: View {
 
 struct LiveMetricsCard: View {
     let stats: PeripheralManager.LiveStats
+    @State private var avgPower: Double = 0
+    @State private var avgCadence: Double = 0
+    @State private var avgSpeed: Double = 0
+    @State private var distance: Double = 0
+    @State private var elapsedTime: TimeInterval = 0
+    @State private var startTime = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -332,6 +339,42 @@ struct LiveMetricsCard: View {
 
                 Divider()
 
+                // Averages Section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Averages")
+                        .font(.system(.subheadline, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 30) {
+                        CompactMetric(
+                            icon: "avg.circle",
+                            value: String(format: "%.0f W", avgPower),
+                            label: "Avg Power"
+                        )
+                        CompactMetric(
+                            icon: "avg.circle",
+                            value: String(format: "%.0f rpm", avgCadence),
+                            label: "Avg Cadence"
+                        )
+                    }
+
+                    HStack(spacing: 30) {
+                        CompactMetric(
+                            icon: "avg.circle",
+                            value: String(format: "%.1f km/h", avgSpeed),
+                            label: "Avg Speed"
+                        )
+                        CompactMetric(
+                            icon: "point.topleft.down.to.point.bottomright.curvepath",
+                            value: String(format: "%.2f km", distance),
+                            label: "Distance"
+                        )
+                    }
+                }
+
+                Divider()
+
+                // Additional Info
                 HStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 4) {
                         Label("Gear", systemImage: "gearshape.fill")
@@ -348,13 +391,30 @@ struct LiveMetricsCard: View {
                         Text(String(format: "%.1f%%", stats.gradePercent))
                             .font(.system(.callout, design: .monospaced, weight: .medium))
                     }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Time", systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(formatTime(elapsedTime))
+                            .font(.system(.callout, design: .monospaced, weight: .medium))
+                    }
                 }
+
+                // Power Zone Distribution
+                PowerZoneBar(currentPower: stats.powerW)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .onAppear {
+            startTime = Date()
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            updateAverages()
+        }
     }
 
     func powerColor(for watts: Int) -> Color {
@@ -364,6 +424,260 @@ struct LiveMetricsCard: View {
         case 200..<250: return .yellow
         case 250..<300: return .orange
         default: return .red
+        }
+    }
+
+    func updateAverages() {
+        elapsedTime = Date().timeIntervalSince(startTime)
+
+        // Simple moving average calculation (in real app, would track history)
+        avgPower = avgPower * 0.95 + Double(stats.powerW) * 0.05
+        avgCadence = avgCadence * 0.95 + Double(stats.cadenceRpm) * 0.05
+        avgSpeed = avgSpeed * 0.95 + stats.speedKmh * 0.05
+        distance += (stats.speedKmh / 3600.0) // Add distance based on speed (km)
+    }
+
+    func formatTime(_ interval: TimeInterval) -> String {
+        let hours = Int(interval) / 3600
+        let minutes = Int(interval) % 3600 / 60
+        let seconds = Int(interval) % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%02d:%02d", minutes, seconds)
+        }
+    }
+}
+
+struct CompactMetric: View {
+    let icon: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
+            Text(value)
+                .font(.system(.caption, design: .monospaced, weight: .semibold))
+                .foregroundStyle(.primary)
+        }
+        .frame(minWidth: 80, alignment: .leading)
+    }
+}
+
+struct PerformanceGraphCard: View {
+    let stats: PeripheralManager.LiveStats
+    @State private var powerHistory: [Double] = Array(repeating: 0, count: 60)
+    @State private var cadenceHistory: [Double] = Array(repeating: 0, count: 60)
+    @State private var speedHistory: [Double] = Array(repeating: 0, count: 60)
+    @State private var selectedMetric = 0 // 0: Power, 1: Cadence, 2: Speed
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label("Performance", systemImage: "chart.xyaxis.line")
+                    .font(.system(.headline, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Picker("Metric", selection: $selectedMetric) {
+                    Text("Power").tag(0)
+                    Text("Cadence").tag(1)
+                    Text("Speed").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 200)
+            }
+
+            GeometryReader { geometry in
+                ZStack {
+                    // Grid lines
+                    Path { path in
+                        let height = geometry.size.height
+                        let width = geometry.size.width
+
+                        // Horizontal grid lines
+                        for i in 0...4 {
+                            let y = height * CGFloat(i) / 4
+                            path.move(to: CGPoint(x: 0, y: y))
+                            path.addLine(to: CGPoint(x: width, y: y))
+                        }
+
+                        // Vertical grid lines
+                        for i in 0...5 {
+                            let x = width * CGFloat(i) / 5
+                            path.move(to: CGPoint(x: x, y: 0))
+                            path.addLine(to: CGPoint(x: x, y: height))
+                        }
+                    }
+                    .stroke(Color(.separatorColor).opacity(0.3), lineWidth: 0.5)
+
+                    // Data line
+                    Path { path in
+                        let data = selectedData()
+                        let maxValue = maxValueForMetric()
+                        let height = geometry.size.height
+                        let width = geometry.size.width
+
+                        guard !data.isEmpty else { return }
+
+                        for (index, value) in data.enumerated() {
+                            let x = width * CGFloat(index) / CGFloat(data.count - 1)
+                            let y = height - (height * CGFloat(value) / maxValue)
+
+                            if index == 0 {
+                                path.move(to: CGPoint(x: x, y: y))
+                            } else {
+                                path.addLine(to: CGPoint(x: x, y: y))
+                            }
+                        }
+                    }
+                    .stroke(lineColor(), lineWidth: 2)
+
+                    // Fill gradient
+                    Path { path in
+                        let data = selectedData()
+                        let maxValue = maxValueForMetric()
+                        let height = geometry.size.height
+                        let width = geometry.size.width
+
+                        guard !data.isEmpty else { return }
+
+                        path.move(to: CGPoint(x: 0, y: height))
+
+                        for (index, value) in data.enumerated() {
+                            let x = width * CGFloat(index) / CGFloat(data.count - 1)
+                            let y = height - (height * CGFloat(value) / maxValue)
+                            path.addLine(to: CGPoint(x: x, y: y))
+                        }
+
+                        path.addLine(to: CGPoint(x: width, y: height))
+                        path.closeSubpath()
+                    }
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [lineColor().opacity(0.3), lineColor().opacity(0)]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+            }
+            .frame(height: 120)
+
+            HStack {
+                Text("Last 60 seconds")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text(currentValueText())
+                    .font(.system(.callout, design: .monospaced, weight: .medium))
+                    .foregroundStyle(lineColor())
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            updateHistory()
+        }
+    }
+
+    func updateHistory() {
+        powerHistory.removeFirst()
+        powerHistory.append(Double(stats.powerW))
+
+        cadenceHistory.removeFirst()
+        cadenceHistory.append(Double(stats.cadenceRpm))
+
+        speedHistory.removeFirst()
+        speedHistory.append(stats.speedKmh)
+    }
+
+    func selectedData() -> [Double] {
+        switch selectedMetric {
+        case 0: return powerHistory
+        case 1: return cadenceHistory
+        case 2: return speedHistory
+        default: return powerHistory
+        }
+    }
+
+    func maxValueForMetric() -> Double {
+        switch selectedMetric {
+        case 0: return max(500, powerHistory.max() ?? 500)
+        case 1: return max(150, cadenceHistory.max() ?? 150)
+        case 2: return max(60, speedHistory.max() ?? 60)
+        default: return 100
+        }
+    }
+
+    func lineColor() -> Color {
+        switch selectedMetric {
+        case 0: return .orange
+        case 1: return .blue
+        case 2: return .green
+        default: return .orange
+        }
+    }
+
+    func currentValueText() -> String {
+        switch selectedMetric {
+        case 0: return "\(stats.powerW) W"
+        case 1: return "\(stats.cadenceRpm) rpm"
+        case 2: return String(format: "%.1f km/h", stats.speedKmh)
+        default: return ""
+        }
+    }
+}
+
+struct PowerZoneBar: View {
+    let currentPower: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Power Zones")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
+
+            GeometryReader { geometry in
+                HStack(spacing: 1) {
+                    ForEach(0..<5) { zone in
+                        Rectangle()
+                            .fill(zoneColor(zone).opacity(currentPower > zoneThreshold(zone) ? 1 : 0.2))
+                            .frame(width: geometry.size.width / 5)
+                    }
+                }
+            }
+            .frame(height: 8)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        }
+    }
+
+    func zoneColor(_ zone: Int) -> Color {
+        switch zone {
+        case 0: return .blue
+        case 1: return .green
+        case 2: return .yellow
+        case 3: return .orange
+        default: return .red
+        }
+    }
+
+    func zoneThreshold(_ zone: Int) -> Int {
+        switch zone {
+        case 0: return 0
+        case 1: return 150
+        case 2: return 200
+        case 3: return 250
+        default: return 300
         }
     }
 }
@@ -381,12 +695,16 @@ struct ActivityFeedCard: View {
 
                 Spacer()
 
-                Button(action: { withAnimation(.spring(response: 0.3)) { isExpanded.toggle() } }) {
+                Button(action: {
+                    withAnimation(.spring(response: 0.3)) {
+                        isExpanded.toggle()
+                    }
+                }, label: {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                }
+                })
                 .buttonStyle(.plain)
             }
 
@@ -440,7 +758,11 @@ struct ServiceToggle: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        Button(action: { withAnimation(.spring(response: 0.2)) { isOn.toggle() } }) {
+        Button(action: {
+            withAnimation(.spring(response: 0.2)) {
+                isOn.toggle()
+            }
+        }, label: {
             VStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
@@ -456,7 +778,7 @@ struct ServiceToggle: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(isOn ? Color.accentColor : Color(.controlBackgroundColor))
             )
-        }
+        })
         .buttonStyle(.plain)
     }
 }
@@ -507,18 +829,18 @@ struct MetricSlider: View {
 
                 if showStepper {
                     HStack(spacing: 2) {
-                        Button(action: { value = max(range.lowerBound, value - step) }) {
+                        Button(action: { value = max(range.lowerBound, value - step) }, label: {
                             Image(systemName: "minus")
                                 .font(.system(size: 12, weight: .medium))
-                        }
+                        })
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .disabled(disabled || value <= range.lowerBound)
 
-                        Button(action: { value = min(range.upperBound, value + step) }) {
+                        Button(action: { value = min(range.upperBound, value + step) }, label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 12, weight: .medium))
-                        }
+                        })
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .disabled(disabled || value >= range.upperBound)

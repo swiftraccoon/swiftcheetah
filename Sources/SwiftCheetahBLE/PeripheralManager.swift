@@ -1,6 +1,8 @@
 import Foundation
 import CoreBluetooth
+#if SWIFT_PACKAGE
 import SwiftCheetahCore
+#endif
 // Pure encoders for GATT payloads
 // (Keep separate from CoreBluetooth to allow unit testing.)
 // BLEEncoding is internal to this module; no import needed beyond same target.
