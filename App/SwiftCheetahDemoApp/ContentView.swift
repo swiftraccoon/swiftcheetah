@@ -22,14 +22,16 @@ struct ContentView: View {
                         VStack(spacing: 20) {
                             BroadcastSettingsCard(periph: periph)
                             SimulationControlsCard(periph: periph)
-                            PerformanceGraphCard(stats: periph.stats)
                         }
                         .frame(maxWidth: .infinity)
 
                         LiveMetricsCard(stats: periph.stats)
-                            .frame(width: 380)
+                            .frame(width: 400)
                     }
                     .padding(.horizontal, 20)
+
+                    PerformanceGraphCard(stats: periph.stats)
+                        .padding(.horizontal, 20)
 
                     ActivityFeedCard(
                         eventLog: periph.eventLog,
@@ -469,10 +471,11 @@ struct CompactMetric: View {
 
 struct PerformanceGraphCard: View {
     let stats: PeripheralManager.LiveStats
-    @State private var powerHistory: [Double] = Array(repeating: 0, count: 60)
-    @State private var cadenceHistory: [Double] = Array(repeating: 0, count: 60)
-    @State private var speedHistory: [Double] = Array(repeating: 0, count: 60)
+    @State private var powerHistory: [Double] = []
+    @State private var cadenceHistory: [Double] = []
+    @State private var speedHistory: [Double] = []
     @State private var selectedMetric = 0 // 0: Power, 1: Cadence, 2: Speed
+    @State private var timer: Timer?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -493,28 +496,46 @@ struct PerformanceGraphCard: View {
                 .frame(width: 200)
             }
 
-            GeometryReader { geometry in
-                ZStack {
-                    // Grid lines
-                    Path { path in
-                        let height = geometry.size.height
-                        let width = geometry.size.width
+            HStack(alignment: .bottom, spacing: 8) {
+                // Y-axis labels
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(yAxisMaxLabel())
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Text(yAxisMidLabel())
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Text("0")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(width: 30, height: 120)
 
-                        // Horizontal grid lines
-                        for i in 0...4 {
-                            let y = height * CGFloat(i) / 4
-                            path.move(to: CGPoint(x: 0, y: y))
-                            path.addLine(to: CGPoint(x: width, y: y))
-                        }
+                VStack(spacing: 4) {
+                    GeometryReader { geometry in
+                        ZStack {
+                            // Grid lines
+                            Path { path in
+                                let height = geometry.size.height
+                                let width = geometry.size.width
 
-                        // Vertical grid lines
-                        for i in 0...5 {
-                            let x = width * CGFloat(i) / 5
-                            path.move(to: CGPoint(x: x, y: 0))
-                            path.addLine(to: CGPoint(x: x, y: height))
-                        }
-                    }
-                    .stroke(Color(.separatorColor).opacity(0.3), lineWidth: 0.5)
+                                // Horizontal grid lines
+                                for i in 0...4 {
+                                    let y = height * CGFloat(i) / 4
+                                    path.move(to: CGPoint(x: 0, y: y))
+                                    path.addLine(to: CGPoint(x: width, y: y))
+                                }
+
+                                // Vertical grid lines
+                                for i in 0...5 {
+                                    let x = width * CGFloat(i) / 5
+                                    path.move(to: CGPoint(x: x, y: 0))
+                                    path.addLine(to: CGPoint(x: x, y: height))
+                                }
+                            }
+                            .stroke(Color(.separatorColor).opacity(0.3), lineWidth: 0.5)
 
                     // Data line
                     Path { path in
@@ -565,12 +586,30 @@ struct PerformanceGraphCard: View {
                             endPoint: .bottom
                         )
                     )
+                        }
+                    }
+                    .frame(height: 120)
+
+                    // X-axis labels
+                    HStack {
+                        Text("-60s")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("-30s")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("Now")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 4)
                 }
             }
-            .frame(height: 120)
 
             HStack {
-                Text("Last 60 seconds")
+                Text(metricLabel())
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -585,20 +624,42 @@ struct PerformanceGraphCard: View {
         .frame(maxWidth: .infinity)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
-            updateHistory()
+        .onAppear {
+            // Initialize with 60 data points
+            if powerHistory.isEmpty {
+                powerHistory = Array(repeating: 0, count: 60)
+                cadenceHistory = Array(repeating: 0, count: 60)
+                speedHistory = Array(repeating: 0, count: 60)
+            }
+
+            // Start timer to update graph
+            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                Task { @MainActor in
+                    updateHistory()
+                }
+            }
+        }
+        .onDisappear {
+            timer?.invalidate()
         }
     }
 
     func updateHistory() {
-        powerHistory.removeFirst()
-        powerHistory.append(Double(stats.powerW))
+        // Remove oldest value and add new one
+        if !powerHistory.isEmpty {
+            powerHistory.removeFirst()
+            powerHistory.append(Double(stats.powerW))
+        }
 
-        cadenceHistory.removeFirst()
-        cadenceHistory.append(Double(stats.cadenceRpm))
+        if !cadenceHistory.isEmpty {
+            cadenceHistory.removeFirst()
+            cadenceHistory.append(Double(stats.cadenceRpm))
+        }
 
-        speedHistory.removeFirst()
-        speedHistory.append(stats.speedKmh)
+        if !speedHistory.isEmpty {
+            speedHistory.removeFirst()
+            speedHistory.append(stats.speedKmh)
+        }
     }
 
     func selectedData() -> [Double] {
@@ -633,6 +694,35 @@ struct PerformanceGraphCard: View {
         case 0: return "\(stats.powerW) W"
         case 1: return "\(stats.cadenceRpm) rpm"
         case 2: return String(format: "%.1f km/h", stats.speedKmh)
+        default: return ""
+        }
+    }
+
+    func yAxisMaxLabel() -> String {
+        let max = maxValueForMetric()
+        switch selectedMetric {
+        case 0: return "\(Int(max))W"
+        case 1: return "\(Int(max))"
+        case 2: return "\(Int(max))"
+        default: return ""
+        }
+    }
+
+    func yAxisMidLabel() -> String {
+        let max = maxValueForMetric()
+        switch selectedMetric {
+        case 0: return "\(Int(max/2))W"
+        case 1: return "\(Int(max/2))"
+        case 2: return "\(Int(max/2))"
+        default: return ""
+        }
+    }
+
+    func metricLabel() -> String {
+        switch selectedMetric {
+        case 0: return "Power (Watts)"
+        case 1: return "Cadence (RPM)"
+        case 2: return "Speed (km/h)"
         default: return ""
         }
     }
@@ -709,23 +799,31 @@ struct ActivityFeedCard: View {
             }
 
             if isExpanded {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(eventLog.enumerated()), id: \.offset) { _, line in
-                            HStack(spacing: 8) {
-                                Image(systemName: eventIcon(for: line))
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(eventColor(for: line))
-                                    .frame(width: 16)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(Array(eventLog.enumerated()), id: \.offset) { index, line in
+                                HStack(spacing: 8) {
+                                    Image(systemName: eventIcon(for: line))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(eventColor(for: line))
+                                        .frame(width: 16)
 
-                                Text(line)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(.primary)
+                                    Text(line)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(.primary)
+                                }
+                                .id(index)
                             }
                         }
                     }
+                    .frame(maxHeight: 200)
+                    .onChange(of: eventLog.count) { _, _ in
+                        withAnimation {
+                            proxy.scrollTo(eventLog.count - 1, anchor: .bottom)
+                        }
+                    }
                 }
-                .frame(maxHeight: 200)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
