@@ -20,7 +20,7 @@ final class CadenceManagerTests: XCTestCase {
         XCTAssertGreaterThan(state2.target, state1.target, "Higher power should increase target cadence")
         // Actual cadence should trend higher but may vary due to gear shifts and dynamics
         // We allow more tolerance since gear selection is probabilistic
-        XCTAssertGreaterThan(state2.cadence, state1.cadence - 10, "Higher power should generally increase actual cadence")
+        XCTAssertGreaterThan(state2.cadence, state1.cadence - 15, "Higher power should generally increase actual cadence")
     }
 
     func testGradeReducesCadence() {

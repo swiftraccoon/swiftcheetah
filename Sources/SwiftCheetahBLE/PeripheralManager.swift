@@ -98,7 +98,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var pendingAdvertData: [String: Any] = [:]
     // Live stats for UI
     public struct LiveStats: Sendable { public var speedKmh: Double; public var powerW: Int; public var cadenceRpm: Int; public var mode: String; public var gear: String; public var targetCadence: Int; public var fatigue: Double; public var noise: Double; public var gradePercent: Double }
-    @Published public private(set) var stats: LiveStats = LiveStats(speedKmh: 0, powerW: 0, cadenceRpm: 0, mode: "AUTO", gear: "", targetCadence: 0, fatigue: 0, noise: 0, gradePercent: 0)
+    @Published public private(set) var stats: LiveStats = LiveStats(speedKmh: 25.0, powerW: 250, cadenceRpm: 90, mode: "AUTO", gear: "2x5", targetCadence: 90, fatigue: 0, noise: 0, gradePercent: 0)
 
     // Rolling counters for CPS
     private var revCount: UInt16 = 0
@@ -109,6 +109,31 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     public override init() {
         super.init()
         self.manager = CBPeripheralManager(delegate: self, queue: .main)
+
+        // Start a simulation timer for UI updates even when not broadcasting
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateSimulation()
+        }
+    }
+
+    private func updateSimulation() {
+        // Update stats for UI even when not broadcasting
+        if !isAdvertising {
+            let dt = 1.0
+            let variation = varMgr.update(randomness: randomness, targetPower: watts, dt: dt)
+            let realisticWatts = powerMgr.update(targetPower: watts, cadenceRPM: cadenceRpm, variation: variation, isResting: false)
+            let v = SpeedFromPower.calculateSpeed(power: Double(realisticWatts), gradePercent: gradePercent, params: physics)
+
+            let cad: Int
+            if cadenceMode == .auto {
+                let cadenceValue = cadenceMgr.update(power: Double(realisticWatts), grade: gradePercent, speedMps: v, dt: dt)
+                cad = Int(cadenceValue.rounded())
+            } else {
+                cad = cadenceRpm
+            }
+
+            updateLiveStats(speedMps: v, watts: realisticWatts, cadence: cad)
+        }
     }
 
     @Published public var localName: String = "Trainer"

@@ -25,12 +25,12 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity)
 
-                        LiveMetricsCard(stats: periph.stats)
-                            .frame(width: 400)
+                        LiveMetricsCard(periph: periph)
+                            .frame(width: 320)
                     }
                     .padding(.horizontal, 20)
 
-                    PerformanceGraphCard(stats: periph.stats)
+                    PerformanceGraphCard(periph: periph)
                         .padding(.horizontal, 20)
 
                     ActivityFeedCard(
@@ -42,7 +42,7 @@ struct ContentView: View {
                 .padding(.bottom, 20)
             }
         }
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 720, minHeight: 600)
         .background(Color(.windowBackgroundColor))
         .onChange(of: broadcasting) { _, on in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -200,8 +200,8 @@ struct BroadcastSettingsCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .frame(width: 320, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
     }
@@ -282,8 +282,8 @@ struct SimulationControlsCard: View {
                 )
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .frame(width: 320, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
     }
@@ -300,13 +300,15 @@ struct SimulationControlsCard: View {
 }
 
 struct LiveMetricsCard: View {
-    let stats: PeripheralManager.LiveStats
-    @State private var avgPower: Double = 0
-    @State private var avgCadence: Double = 0
-    @State private var avgSpeed: Double = 0
+    @ObservedObject var periph: PeripheralManager
+    @State private var totalPower: Double = 0
+    @State private var totalCadence: Double = 0
+    @State private var totalSpeed: Double = 0
+    @State private var sampleCount: Int = 0
     @State private var distance: Double = 0
     @State private var elapsedTime: TimeInterval = 0
     @State private var startTime = Date()
+    @State private var timer: Timer?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -318,7 +320,7 @@ struct LiveMetricsCard: View {
                 MetricRow(
                     icon: "speedometer",
                     title: "Speed",
-                    value: String(format: "%.1f", stats.speedKmh),
+                    value: String(format: "%.1f", periph.stats.speedKmh),
                     unit: "km/h",
                     color: .green
                 )
@@ -326,15 +328,15 @@ struct LiveMetricsCard: View {
                 MetricRow(
                     icon: "bolt.fill",
                     title: "Power",
-                    value: "\(stats.powerW)",
+                    value: "\(periph.stats.powerW)",
                     unit: "W",
-                    color: powerColor(for: stats.powerW)
+                    color: powerColor(for: periph.stats.powerW)
                 )
 
                 MetricRow(
                     icon: "arrow.triangle.2.circlepath",
                     title: "Cadence",
-                    value: "\(stats.cadenceRpm)",
+                    value: "\(periph.stats.cadenceRpm)",
                     unit: "rpm",
                     color: .blue
                 )
@@ -347,23 +349,23 @@ struct LiveMetricsCard: View {
                         .font(.system(.subheadline, weight: .medium))
                         .foregroundStyle(.secondary)
 
-                    HStack(spacing: 30) {
+                    HStack(spacing: 20) {
                         CompactMetric(
                             icon: "avg.circle",
-                            value: String(format: "%.0f W", avgPower),
+                            value: String(format: "%.0f W", sampleCount > 0 ? totalPower / Double(sampleCount) : 0),
                             label: "Avg Power"
                         )
                         CompactMetric(
                             icon: "avg.circle",
-                            value: String(format: "%.0f rpm", avgCadence),
+                            value: String(format: "%.0f rpm", sampleCount > 0 ? totalCadence / Double(sampleCount) : 0),
                             label: "Avg Cadence"
                         )
                     }
 
-                    HStack(spacing: 30) {
+                    HStack(spacing: 20) {
                         CompactMetric(
                             icon: "avg.circle",
-                            value: String(format: "%.1f km/h", avgSpeed),
+                            value: String(format: "%.1f km/h", sampleCount > 0 ? totalSpeed / Double(sampleCount) : 0),
                             label: "Avg Speed"
                         )
                         CompactMetric(
@@ -382,7 +384,7 @@ struct LiveMetricsCard: View {
                         Label("Gear", systemImage: "gearshape.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(stats.gear)
+                        Text(periph.stats.gear)
                             .font(.system(.callout, design: .monospaced, weight: .medium))
                     }
 
@@ -390,7 +392,7 @@ struct LiveMetricsCard: View {
                         Label("Grade", systemImage: "arrow.up.right")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(String(format: "%.1f%%", stats.gradePercent))
+                        Text(String(format: "%.1f%%", periph.stats.gradePercent))
                             .font(.system(.callout, design: .monospaced, weight: .medium))
                     }
 
@@ -404,18 +406,35 @@ struct LiveMetricsCard: View {
                 }
 
                 // Power Zone Distribution
-                PowerZoneBar(currentPower: stats.powerW)
+                PowerZoneBar(currentPower: periph.stats.powerW)
+
+                // Extra spacing to match Simulation Controls height
+                Spacer()
+                    .frame(height: 20)
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
         .onAppear {
             startTime = Date()
+            // Reset totals when view appears
+            totalPower = 0
+            totalCadence = 0
+            totalSpeed = 0
+            sampleCount = 0
+            distance = 0
+
+            // Start timer to update averages
+            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                Task { @MainActor in
+                    updateAverages()
+                }
+            }
         }
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
-            updateAverages()
+        .onDisappear {
+            timer?.invalidate()
         }
     }
 
@@ -432,11 +451,14 @@ struct LiveMetricsCard: View {
     func updateAverages() {
         elapsedTime = Date().timeIntervalSince(startTime)
 
-        // Simple moving average calculation (in real app, would track history)
-        avgPower = avgPower * 0.95 + Double(stats.powerW) * 0.05
-        avgCadence = avgCadence * 0.95 + Double(stats.cadenceRpm) * 0.05
-        avgSpeed = avgSpeed * 0.95 + stats.speedKmh * 0.05
-        distance += (stats.speedKmh / 3600.0) // Add distance based on speed (km)
+        // Accumulate totals for true average calculation
+        totalPower += Double(periph.stats.powerW)
+        totalCadence += Double(periph.stats.cadenceRpm)
+        totalSpeed += periph.stats.speedKmh
+        sampleCount += 1
+
+        // Update distance based on current speed (km/h converted to km/s)
+        distance += (periph.stats.speedKmh / 3600.0)
     }
 
     func formatTime(_ interval: TimeInterval) -> String {
@@ -470,12 +492,13 @@ struct CompactMetric: View {
 }
 
 struct PerformanceGraphCard: View {
-    let stats: PeripheralManager.LiveStats
-    @State private var powerHistory: [Double] = []
-    @State private var cadenceHistory: [Double] = []
-    @State private var speedHistory: [Double] = []
+    @ObservedObject var periph: PeripheralManager
+    @State private var powerHistory: [Double] = Array(repeating: 0, count: 600)  // 10 minutes at 1 sample/sec
+    @State private var cadenceHistory: [Double] = Array(repeating: 0, count: 600)
+    @State private var speedHistory: [Double] = Array(repeating: 0, count: 600)
     @State private var selectedMetric = 0 // 0: Power, 1: Cadence, 2: Speed
     @State private var timer: Timer?
+    @State private var updateTrigger = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -544,10 +567,17 @@ struct PerformanceGraphCard: View {
                         let height = geometry.size.height
                         let width = geometry.size.width
 
-                        guard !data.isEmpty else { return }
+                        // Force update trigger to be used
+                        _ = updateTrigger
 
-                        for (index, value) in data.enumerated() {
-                            let x = width * CGFloat(index) / CGFloat(data.count - 1)
+                        guard !data.isEmpty, maxValue > 0 else { return }
+
+                        // Downsample for performance - show every 5th point
+                        let step = max(1, data.count / 120)  // Show ~120 points max
+
+                        for index in stride(from: 0, to: data.count, by: step) {
+                            let value = data[index]
+                            let x = width * CGFloat(index) / CGFloat(max(1, data.count - 1))
                             let y = height - (height * CGFloat(value) / maxValue)
 
                             if index == 0 {
@@ -566,12 +596,19 @@ struct PerformanceGraphCard: View {
                         let height = geometry.size.height
                         let width = geometry.size.width
 
-                        guard !data.isEmpty else { return }
+                        // Force update trigger to be used
+                        _ = updateTrigger
+
+                        guard !data.isEmpty, maxValue > 0 else { return }
 
                         path.move(to: CGPoint(x: 0, y: height))
 
-                        for (index, value) in data.enumerated() {
-                            let x = width * CGFloat(index) / CGFloat(data.count - 1)
+                        // Downsample for performance
+                        let step = max(1, data.count / 120)
+
+                        for index in stride(from: 0, to: data.count, by: step) {
+                            let value = data[index]
+                            let x = width * CGFloat(index) / CGFloat(max(1, data.count - 1))
                             let y = height - (height * CGFloat(value) / maxValue)
                             path.addLine(to: CGPoint(x: x, y: y))
                         }
@@ -586,25 +623,25 @@ struct PerformanceGraphCard: View {
                             endPoint: .bottom
                         )
                     )
-                        }
-                    }
-                    .frame(height: 120)
+                }
+                }
+                .frame(height: 120)
 
-                    // X-axis labels
-                    HStack {
-                        Text("-60s")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
-                        Spacer()
-                        Text("-30s")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
-                        Spacer()
-                        Text("Now")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.horizontal, 4)
+                // X-axis labels
+                HStack {
+                    Text("-10m")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Text("-5m")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Text("Now")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 4)
                 }
             }
 
@@ -620,18 +657,11 @@ struct PerformanceGraphCard: View {
                     .foregroundStyle(lineColor())
             }
         }
-        .padding(20)
+        .padding(16)
         .frame(maxWidth: .infinity)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
         .onAppear {
-            // Initialize with 60 data points
-            if powerHistory.isEmpty {
-                powerHistory = Array(repeating: 0, count: 60)
-                cadenceHistory = Array(repeating: 0, count: 60)
-                speedHistory = Array(repeating: 0, count: 60)
-            }
-
             // Start timer to update graph
             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 Task { @MainActor in
@@ -646,20 +676,17 @@ struct PerformanceGraphCard: View {
 
     func updateHistory() {
         // Remove oldest value and add new one
-        if !powerHistory.isEmpty {
-            powerHistory.removeFirst()
-            powerHistory.append(Double(stats.powerW))
-        }
+        powerHistory.removeFirst()
+        powerHistory.append(Double(periph.stats.powerW))
 
-        if !cadenceHistory.isEmpty {
-            cadenceHistory.removeFirst()
-            cadenceHistory.append(Double(stats.cadenceRpm))
-        }
+        cadenceHistory.removeFirst()
+        cadenceHistory.append(Double(periph.stats.cadenceRpm))
 
-        if !speedHistory.isEmpty {
-            speedHistory.removeFirst()
-            speedHistory.append(stats.speedKmh)
-        }
+        speedHistory.removeFirst()
+        speedHistory.append(periph.stats.speedKmh)
+
+        // Toggle to force UI update
+        updateTrigger.toggle()
     }
 
     func selectedData() -> [Double] {
@@ -691,9 +718,9 @@ struct PerformanceGraphCard: View {
 
     func currentValueText() -> String {
         switch selectedMetric {
-        case 0: return "\(stats.powerW) W"
-        case 1: return "\(stats.cadenceRpm) rpm"
-        case 2: return String(format: "%.1f km/h", stats.speedKmh)
+        case 0: return "\(periph.stats.powerW) W"
+        case 1: return "\(periph.stats.cadenceRpm) rpm"
+        case 2: return String(format: "%.1f km/h", periph.stats.speedKmh)
         default: return ""
         }
     }
