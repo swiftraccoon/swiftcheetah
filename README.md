@@ -1,6 +1,8 @@
 SwiftCheetah (macOS)
 ====================
 
+![SwiftCheetah App](swiftcheetah.png)
+
 Overview
 --------
 
@@ -16,7 +18,6 @@ Status (WIP)
   - Research‑based engine for speed (power→speed physics) and cadence (logistic power→cadence, grade effects, gear constraints)
   - Unit tests for engine and GATT payload encoders; GitHub Actions CI with build + test + lint
 - In progress / TODO
-  - GUI: current layout is functional but not polished; design and spacing will be improved
   - Add more end‑to‑end integration tests (central harness) for CPS and RSC payloads
   - Settings panel for engine parameters (mass, Crr, CdA, FTP), export/import configuration
   - Packaging and release instructions

@@ -68,3 +68,6 @@ coverage/
 *.md
 !README.md
 
+# Git submodules
+.gitmodules
+
