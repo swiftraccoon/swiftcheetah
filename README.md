@@ -8,19 +8,40 @@ Overview
 
 SwiftCheetah is a macOS app (Swift/SwiftUI) that acts as a Bluetooth LE peripheral for fitness software. It broadcasts FTMS, CPS and RSC services and generates realistic indoor‑bike metrics using research‑backed physics and cadence models. The codebase is split into a pure core (engine) and the BLE/app layers.
 
-Status (WIP)
-------------
+Status
+------
 
-- Completed
-  - BLE peripheral for FTMS (0x1826), CPS (0x1818), RSC (0x1814)
-  - FTMS Control Point handling (Request Control, Reset, Set Target Power, Start/Stop, Set Indoor Bike Simulation) with Fitness Machine Status notifications
-  - FTMS Indoor Bike Data notifications (speed encoded as 0, cadence, power)
-  - Research‑based engine for speed (power→speed physics) and cadence (logistic power→cadence, grade effects, gear constraints)
-  - Unit tests for engine and GATT payload encoders; GitHub Actions CI with build + test + lint
-- In progress / TODO
-  - Add more end‑to‑end integration tests (central harness) for CPS and RSC payloads
-  - Settings panel for engine parameters (mass, Crr, CdA, FTP), export/import configuration
-  - Packaging and release instructions
+### Completed Features
+
+- BLE peripheral for FTMS (0x1826), CPS (0x1818), RSC (0x1814)
+- FTMS Control Point with 20+ commands (Request Control, Reset, Set Target Power, Start/Stop, Set Indoor Bike Simulation)
+- FTMS Indoor Bike Data notifications (speed encoded as 0, cadence, power)
+- Research-based physics engine (power→speed calculations, cadence modeling with grade effects and gear constraints)
+- Comprehensive validation system with safety clamping
+- Clean architecture with separated concerns (god class refactored into focused components)
+- 99 unit tests with research validation; GitHub Actions CI with build + test + lint
+
+### Architecture
+
+- **CyclingSimulationEngine**: Consolidated physics, cadence, and power simulation
+- **FTMSControlPointHandler**: Strategy pattern for control command processing
+- **BLENotificationScheduler**: Timer management with delegate pattern
+- **SimulationStateManager**: Centralized state and configuration management
+- **PeripheralManager**: Thin facade coordinator maintaining backward compatibility
+
+### Newly Added Components
+
+- **ValueValidator**: Input validation and physiological safety limits
+- **Configuration**: Centralized constants and parameters with research documentation
+- **RandomUtility**: Unified Box-Muller normal distribution generation
+
+### TODO
+
+- Add more end-to-end integration tests for CPS and RSC payloads
+- Settings panel for engine parameters (mass, Crr, CdA, FTP), export/import configuration
+- Error handling standardization
+- Dead code elimination
+- Packaging and release instructions
 
 System Requirements
 -------------------
@@ -32,10 +53,10 @@ Repository Layout
 -----------------
 
 - `Package.swift` — Swift package manifest (core + BLE)
-- `Sources/SwiftCheetahCore/` — engine modules (physics, cadence, variance, utilities)
-- `Sources/SwiftCheetahBLE/` — BLE layer (CBPeripheralManager, GATT encoders)
-- `App/SwiftCheetahDemoApp/` — minimal SwiftUI app target
-- `Tests/` — unit tests for core and BLE (encoding), optional integration test harness
+- `Sources/SwiftCheetahCore/` — engine modules (physics, cadence, validation, configuration, utilities)
+- `Sources/SwiftCheetahBLE/` — BLE layer (peripheral manager, control handlers, schedulers, encoders)
+- `SwiftCheetahApp/SwiftCheetahApp.xcodeproj` — Xcode project for macOS app
+- `Tests/` — comprehensive unit tests with research validation, optional integration test harness
 
 Build and Run
 -------------
@@ -55,19 +76,23 @@ CI
 - GitHub Actions workflow builds the app target, runs unit tests and SwiftLint on push/PR.
 - BLE integration tests are opt‑in; they require a central to run on the same machine and are skipped in CI by default.
 
-Design Notes (Engine)
----------------------
+Design Notes
+-------------
 
-- Cadence (AUTO): logistic power→cadence model with saturating uphill penalty, small downhill bump, gear constraints (one‑cog shifts, cooldowns), high‑speed coasting/spin‑out handling, first‑order response, OU‑style jitter, fatigue accumulation/recovery.
-- Speed: oriented gravity/rolling/aero with drivetrain efficiency, descent terminal velocity and steady‑state solver.
-- The engine is deterministic and designed to avoid invalid or unrealistic values.
+**Clean Architecture**: Separated concerns with focused components replacing the original god class:
 
-Known Limitations (WIP)
------------------------
+- **CyclingSimulationEngine**: Research-validated physics with logistic power→cadence modeling, grade effects, gear constraints, fatigue accumulation/recovery, and Ornstein-Uhlenbeck variance
+- **ValueValidator**: Comprehensive input validation with physiological safety limits and automatic clamping
+- **Configuration System**: Centralized constants with research documentation replacing 400+ magic numbers
 
-- GUI is in an early state (layout, spacing, and controls need refinement).
-- Only a subset of FTMS optional fields are encoded; speed in Indoor Bike Data is fixed to 0 by design.
-- BLE integration tests are present but opt‑in; more scenarios will be added (CPS/RSC payload assertions).
+**Physics Engine**: Deterministic simulation using gravity/rolling/aero resistance with drivetrain efficiency, descent terminal velocity, and Newton-Raphson solver. All parameters validated against research ranges.
+
+**BLE Protocol**: Full FTMS compliance with 20+ control commands, proper response/status handling, and dynamic notification scheduling.
+
+Known Limitations
+-----------------
+
+- GUI layout and spacing need refinement
 
 Integration Test Harness (Optional)
 -----------------------------------
