@@ -55,7 +55,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     @Published public var ftmsIncludeCadence: Bool = true
 
     // Extracted components
-    private var controlPointHandler = FTMSControlPointHandler()
+    private var controlPointHandler: FTMSControlPointHandler!
     private var simulationEngine = CyclingSimulationEngine()
     private var notificationScheduler = BLENotificationScheduler()
 
@@ -83,6 +83,8 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     // Track service registration and delay advertising until all are added
     private var servicesPendingAdd: Int = 0
     private var pendingAdvertData: [String: Any] = [:]
+    // Store broadcast request when Bluetooth isn't ready yet
+    private var pendingBroadcastRequest: (localName: String?, options: Options)?
     // Live stats for UI
     public struct LiveStats: Sendable {
         public var speedKmh: Double
@@ -116,6 +118,19 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
 
     public override init() {
         super.init()
+
+        // Initialize control point handler with current watts value
+        let initialState = FTMSControlPointHandler.ControlState(
+            hasControl: true,
+            isStarted: true,
+            targetPower: watts,
+            simWindSpeedMps: 0,
+            simCrr: 0.004,
+            simCw: 0.51,
+            gradePercent: 0
+        )
+        self.controlPointHandler = FTMSControlPointHandler(initialState: initialState)
+
         self.manager = CBPeripheralManager(delegate: self, queue: .main)
 
         // Start a simulation timer for UI updates even when not broadcasting
@@ -143,10 +158,24 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
 
     /// Begin advertising after all enabled services are added.
     public func startBroadcast(localName: String? = nil, options: Options? = nil) {
-        guard manager.state == .poweredOn else { return }
+        eventLog.append("startBroadcast called - BT state: \(manager.state.rawValue)")
+        guard manager.state == .poweredOn else {
+            // Set state to indicate we're waiting for Bluetooth to be ready
+            state = .starting
+            lastError = "Waiting for Bluetooth to be ready (state: \(manager.state.rawValue))"
+            eventLog.append("Bluetooth not ready (state: \(manager.state.rawValue)), waiting...")
+
+            // Store the broadcast request for when Bluetooth becomes available
+            let effective = options ?? Options(advertiseFTMS: advertiseFTMS, advertiseCPS: advertiseCPS, advertiseRSC: advertiseRSC)
+            self.options = effective
+            pendingBroadcastRequest = (localName, effective)
+            return
+        }
+        eventLog.append("Bluetooth ready, setting up services...")
         let effective = options ?? Options(advertiseFTMS: advertiseFTMS, advertiseCPS: advertiseCPS, advertiseRSC: advertiseRSC)
         self.options = effective
-        state = .starting
+        state = .advertising
+        isAdvertising = true  // Set immediately to update UI
         // Prepare advert data but start only after services added
         var serviceUUIDs: [CBUUID] = []
         if effective.advertiseFTMS { serviceUUIDs.append(GATT.fitnessMachine) }
@@ -157,6 +186,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             CBAdvertisementDataServiceUUIDsKey: serviceUUIDs
         ]
         setupServices()
+        startTicking()  // Start simulation immediately
     }
 
     public func stopBroadcast() {
@@ -164,31 +194,24 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         isAdvertising = false
         state = .stopped
         notificationScheduler.stopNotifications()
+        pendingBroadcastRequest = nil
     }
 
     /// Create and add services/characteristics with spec‑correct properties and descriptors.
     private func setupServices() {
+        eventLog.append("Setting up services - FTMS:\(options.advertiseFTMS) CPS:\(options.advertiseCPS) RSC:\(options.advertiseRSC)")
         servicesPendingAdd = 0
         // FTMS
         if options.advertiseFTMS {
+            eventLog.append("Creating FTMS service...")
             ftmsIndoorBikeData = CBMutableCharacteristic(type: GATT.ftmsIndoorBikeData, properties: [.notify], value: nil, permissions: [])
-            ftmsIndoorBikeData?.descriptors = [
-                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Indoor Bike Data"),
-                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00])),  // Client Characteristic Configuration
-                CBMutableDescriptor(type: CBUUID(string: "2904"), value: Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))  // Presentation Format
-            ]
+            ftmsIndoorBikeData?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Indoor Bike Data")]
             ftmsFeature = CBMutableCharacteristic(type: GATT.ftmsFitnessMachineFeature, properties: [.read], value: nil, permissions: [.readable])
             ftmsFeature?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Feature")]
             ftmsStatus = CBMutableCharacteristic(type: GATT.ftmsFitnessMachineStatus, properties: [.notify], value: nil, permissions: [])
-            ftmsStatus?.descriptors = [
-                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Status"),
-                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00]))  // Client Characteristic Configuration
-            ]
+            ftmsStatus?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Status")]
             ftmsControlPoint = CBMutableCharacteristic(type: GATT.ftmsControlPoint, properties: [.write, .indicate], value: nil, permissions: [.writeable])
-            ftmsControlPoint?.descriptors = [
-                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Control Point"),
-                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00]))  // Client Characteristic Configuration for indications
-            ]
+            ftmsControlPoint?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Control Point")]
             ftmsSupportedPowerRange = CBMutableCharacteristic(type: GATT.ftmsSupportedPowerRange, properties: [.read], value: nil, permissions: [.readable])
             ftmsSupportedPowerRange?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Supported Power Range")]
             let s = CBMutableService(type: GATT.fitnessMachine, primary: true)
@@ -200,11 +223,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         // CPS
         if options.advertiseCPS {
             cpsMeasurement = CBMutableCharacteristic(type: GATT.cpsMeasurement, properties: [.notify], value: nil, permissions: [])
-            cpsMeasurement?.descriptors = [
-                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Cycling Power Measurement"),
-                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00])),  // Client Characteristic Configuration
-                CBMutableDescriptor(type: CBUUID(string: "2904"), value: Data([0x0B, 0x27, 0xAD, 0x01, 0x00, 0x00, 0x00]))  // Presentation Format: sint16, watts
-            ]
+            cpsMeasurement?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Cycling Power Measurement")]
             cpsFeature = CBMutableCharacteristic(type: CBUUID(string: "2A65"), properties: [.read], value: nil, permissions: [.readable])
             cpsFeature?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Cycling Power Feature")]
             cpsSensorLocation = CBMutableCharacteristic(type: CBUUID(string: "2A5D"), properties: [.read], value: nil, permissions: [.readable])
@@ -218,10 +237,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         // RSC
         if options.advertiseRSC {
             rscMeasurement = CBMutableCharacteristic(type: GATT.rscMeasurement, properties: [.notify], value: nil, permissions: [])
-            rscMeasurement?.descriptors = [
-                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "RSC Measurement"),
-                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00]))  // Client Characteristic Configuration
-            ]
+            rscMeasurement?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Running Speed and Cadence Measurement")]
             rscFeature = CBMutableCharacteristic(type: CBUUID(string: "2A54"), properties: [.read], value: nil, permissions: [.readable])
             rscFeature?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "RSC Feature")]
             rscSensorLocation = CBMutableCharacteristic(type: CBUUID(string: "2A5D"), properties: [.read], value: nil, permissions: [.readable])
@@ -438,24 +454,56 @@ extension PeripheralManager: BLENotificationScheduler.Delegate {
 nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
     public func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         let hasError = error?.localizedDescription
+        let serviceUUID = service.uuid.uuidString
         Task { @MainActor in
-            if let e = hasError { self.lastError = e }
+            if let e = hasError {
+                self.lastError = e
+                self.eventLog.append("❌ Error adding service \(serviceUUID): \(e)")
+                self.state = .failed
+                self.isAdvertising = false
+            } else {
+                self.eventLog.append("✅ Service added: \(serviceUUID)")
+            }
             if self.servicesPendingAdd > 0 { self.servicesPendingAdd -= 1 }
-            if self.servicesPendingAdd == 0 && !self.pendingAdvertData.isEmpty {
-                self.manager.startAdvertising(self.pendingAdvertData)
+            self.eventLog.append("Services pending: \(self.servicesPendingAdd)")
+            if self.servicesPendingAdd == 0 {
+                if !self.pendingAdvertData.isEmpty {
+                    self.eventLog.append("📡 All services added, starting advertising with data: \(self.pendingAdvertData)")
+                    self.manager.startAdvertising(self.pendingAdvertData)
+                } else {
+                    self.eventLog.append("⚠️ No advertisement data to broadcast!")
+                    self.state = .failed
+                    self.isAdvertising = false
+                }
             }
         }
     }
     public func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         let s = peripheral.state
         Task { @MainActor in
+            self.eventLog.append("Bluetooth state changed to: \(s.rawValue)")
             switch s {
             case .poweredOn:
+                self.eventLog.append("Bluetooth is now powered on")
                 self.lastError = nil
-            case .poweredOff: self.stopBroadcast()
-            case .unauthorized, .unsupported, .resetting: self.lastError = "Bluetooth unavailable: \(s.rawValue)"
-            case .unknown: break
-            @unknown default: break
+                // If there was a pending broadcast request, execute it now
+                if let pending = self.pendingBroadcastRequest {
+                    self.eventLog.append("Executing pending broadcast request")
+                    self.pendingBroadcastRequest = nil
+                    self.startBroadcast(localName: pending.localName, options: pending.options)
+                }
+            case .poweredOff:
+                self.eventLog.append("Bluetooth powered off")
+                self.stopBroadcast()
+            case .unauthorized, .unsupported, .resetting:
+                self.eventLog.append("Bluetooth error: \(s.rawValue)")
+                self.lastError = "Bluetooth unavailable: \(s.rawValue)"
+                self.state = .failed
+                self.pendingBroadcastRequest = nil
+            case .unknown:
+                self.eventLog.append("Bluetooth state unknown")
+            @unknown default:
+                self.eventLog.append("Bluetooth unknown state: \(s.rawValue)")
             }
         }
     }
@@ -464,18 +512,22 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
         let err = error?.localizedDescription
         Task { @MainActor in
             if let err = err {
+                self.eventLog.append("Failed to start advertising: \(err)")
                 self.state = .failed
                 self.lastError = err
                 self.isAdvertising = false
             } else {
-                self.state = .advertising
-                self.isAdvertising = true
+                self.eventLog.append("✅ Successfully started advertising!")
+                // isAdvertising already set to true in startBroadcast
             }
         }
     }
 
     public func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
-        Task { @MainActor in self.subscriberCount += 1; self.startTicking() }
+        Task { @MainActor in
+            self.subscriberCount += 1
+            self.eventLog.append("Subscriber connected! Total: \(self.subscriberCount)")
+        }
     }
 
     public func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
@@ -626,7 +678,11 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
             // Update local properties that depend on control state
             let controlState = controlPointHandler.getState()
             self.gradePercent = controlState.gradePercent
-            self.watts = controlState.targetPower
+
+            // Only sync watts for SetTargetPower command
+            if result.command == .setTargetPower {
+                self.watts = controlState.targetPower
+            }
         }
 
         // Log the result

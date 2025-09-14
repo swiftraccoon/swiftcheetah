@@ -39,6 +39,7 @@ public final class FTMSControlPointHandler {
 
     /// Command result
     public struct CommandResult {
+        public let command: Opcode?
         public let response: Data?
         public let status: Data?
         public let statusDelay: TimeInterval
@@ -47,7 +48,7 @@ public final class FTMSControlPointHandler {
     }
 
     // FTMS Control Point Opcodes (per FTMS specification)
-    private enum Opcode: UInt8 {
+    public enum Opcode: UInt8 {
         case requestControl = 0x00
         case reset = 0x01
         case setTargetSpeed = 0x02
@@ -113,6 +114,7 @@ public final class FTMSControlPointHandler {
     public func handleCommand(_ data: Data) -> CommandResult {
         guard data.count >= 1 else {
             return CommandResult(
+                command: nil,
                 response: nil,
                 status: nil,
                 statusDelay: 0,
@@ -177,6 +179,7 @@ public final class FTMSControlPointHandler {
             "FTMS: RequestControl -> success"
 
         return CommandResult(
+            command: .requestControl,
             response: response,
             status: nil,
             statusDelay: 0,
@@ -188,6 +191,7 @@ public final class FTMSControlPointHandler {
     private func handleReset() -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .reset,
                 response: createResponse(.reset, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -197,6 +201,7 @@ public final class FTMSControlPointHandler {
         }
 
         return CommandResult(
+            command: .reset,
             response: createResponse(.reset, success),
             status: Data([StatusCode.reset.rawValue]),
             statusDelay: 0.5,
@@ -204,7 +209,7 @@ public final class FTMSControlPointHandler {
             stateUpdate: { state in
                 state.hasControl = false
                 state.isStarted = false
-                state.targetPower = 0
+                // Removed: state.targetPower = 0 to prevent overwriting user's watts
             }
         )
     }
@@ -212,6 +217,7 @@ public final class FTMSControlPointHandler {
     private func handleSetTargetPower(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .setTargetPower,
                 response: createResponse(.setTargetPower, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -222,6 +228,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 3 else {
             return CommandResult(
+                command: .setTargetPower,
                 response: createResponse(.setTargetPower, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -234,6 +241,7 @@ public final class FTMSControlPointHandler {
 
         guard targetPower >= 0 && targetPower <= 4000 else {
             return CommandResult(
+                command: .setTargetPower,
                 response: createResponse(.setTargetPower, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -249,6 +257,7 @@ public final class FTMSControlPointHandler {
         statusData.append(UInt8(truncatingIfNeeded: powerUInt >> 8))
 
         return CommandResult(
+            command: .setTargetPower,
             response: createResponse(.setTargetPower, success),
             status: statusData,
             statusDelay: 0,
@@ -260,6 +269,7 @@ public final class FTMSControlPointHandler {
     private func handleStartOrResume() -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .startOrResume,
                 response: createResponse(.startOrResume, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -273,6 +283,7 @@ public final class FTMSControlPointHandler {
             "FTMS: StartOrResume -> success"
 
         return CommandResult(
+            command: .startOrResume,
             response: createResponse(.startOrResume, success),
             status: state.isStarted ? nil : Data([StatusCode.startedOrResumed.rawValue]),
             statusDelay: 0,
@@ -284,6 +295,7 @@ public final class FTMSControlPointHandler {
     private func handleStopOrPause() -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .stopOrPause,
                 response: createResponse(.stopOrPause, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -297,6 +309,7 @@ public final class FTMSControlPointHandler {
             "FTMS: StopOrPause -> already stopped"
 
         return CommandResult(
+            command: .stopOrPause,
             response: createResponse(.stopOrPause, success),
             status: state.isStarted ? Data([StatusCode.stoppedOrPaused.rawValue]) : nil,
             statusDelay: 0,
@@ -308,6 +321,7 @@ public final class FTMSControlPointHandler {
     private func handleSetIndoorBikeSimulation(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .setIndoorBikeSimulation,
                 response: createResponse(.setIndoorBikeSimulation, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -318,6 +332,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 7 else {
             return CommandResult(
+                command: .setIndoorBikeSimulation,
                 response: createResponse(.setIndoorBikeSimulation, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -333,6 +348,7 @@ public final class FTMSControlPointHandler {
 
         guard abs(wind) <= 32767 && abs(grade) <= 4000 && crr <= 255 && cw <= 255 else {
             return CommandResult(
+                command: .setIndoorBikeSimulation,
                 response: createResponse(.setIndoorBikeSimulation, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -360,6 +376,7 @@ public final class FTMSControlPointHandler {
                            windSpeed, gradePercent, crrValue, cwValue)
 
         return CommandResult(
+            command: .setIndoorBikeSimulation,
             response: createResponse(.setIndoorBikeSimulation, success),
             status: statusData,
             statusDelay: 0,
@@ -376,6 +393,7 @@ public final class FTMSControlPointHandler {
     private func handleSpinDownControl(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .spinDownControl,
                 response: createResponse(.spinDownControl, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -386,6 +404,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 2 else {
             return CommandResult(
+                command: .spinDownControl,
                 response: createResponse(.spinDownControl, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -398,6 +417,7 @@ public final class FTMSControlPointHandler {
 
         if spinDownCommand == 0x01 {  // Start spin down
             return CommandResult(
+                command: .spinDownControl,
                 response: createResponse(.spinDownControl, success),
                 status: Data([StatusCode.spinDownStarted.rawValue]),
                 statusDelay: 2.5,  // Simulate completion after delay
@@ -406,6 +426,7 @@ public final class FTMSControlPointHandler {
             )
         } else if spinDownCommand == 0x02 {  // Ignore spin down
             return CommandResult(
+                command: .spinDownControl,
                 response: createResponse(.spinDownControl, success),
                 status: Data([StatusCode.spinDownIgnored.rawValue]),
                 statusDelay: 0,
@@ -414,6 +435,7 @@ public final class FTMSControlPointHandler {
             )
         } else {
             return CommandResult(
+                command: .spinDownControl,
                 response: createResponse(.spinDownControl, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -426,6 +448,7 @@ public final class FTMSControlPointHandler {
     private func handleSetTargetSpeed(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .setTargetSpeed,
                 response: createResponse(.setTargetSpeed, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -436,6 +459,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 3 else {
             return CommandResult(
+                command: .setTargetSpeed,
                 response: createResponse(.setTargetSpeed, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -451,6 +475,7 @@ public final class FTMSControlPointHandler {
         statusData.append(contentsOf: withUnsafeBytes(of: speedCms.littleEndian) { Data($0) })
 
         return CommandResult(
+            command: .setTargetSpeed,
             response: createResponse(.setTargetSpeed, success),
             status: statusData,
             statusDelay: 0,
@@ -462,6 +487,7 @@ public final class FTMSControlPointHandler {
     private func handleSetTargetInclination(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .setTargetInclination,
                 response: createResponse(.setTargetInclination, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -472,6 +498,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 3 else {
             return CommandResult(
+                command: .setTargetInclination,
                 response: createResponse(.setTargetInclination, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -487,6 +514,7 @@ public final class FTMSControlPointHandler {
         statusData.append(contentsOf: withUnsafeBytes(of: inclineRaw.littleEndian) { Data($0) })
 
         return CommandResult(
+            command: .setTargetInclination,
             response: createResponse(.setTargetInclination, success),
             status: statusData,
             statusDelay: 0,
@@ -498,6 +526,7 @@ public final class FTMSControlPointHandler {
     private func handleSetWheelCircumference(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .setWheelCircumference,
                 response: createResponse(.setWheelCircumference, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -508,6 +537,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 3 else {
             return CommandResult(
+                command: .setWheelCircumference,
                 response: createResponse(.setWheelCircumference, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -522,6 +552,7 @@ public final class FTMSControlPointHandler {
         statusData.append(contentsOf: withUnsafeBytes(of: circumferenceMm.littleEndian) { Data($0) })
 
         return CommandResult(
+            command: .setWheelCircumference,
             response: createResponse(.setWheelCircumference, success),
             status: statusData,
             statusDelay: 0,
@@ -533,6 +564,7 @@ public final class FTMSControlPointHandler {
     private func handleSetTargetedCadence(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .setTargetedCadence,
                 response: createResponse(.setTargetedCadence, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -543,6 +575,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 3 else {
             return CommandResult(
+                command: .setTargetedCadence,
                 response: createResponse(.setTargetedCadence, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -558,6 +591,7 @@ public final class FTMSControlPointHandler {
         statusData.append(contentsOf: withUnsafeBytes(of: targetCadence.littleEndian) { Data($0) })
 
         return CommandResult(
+            command: .setTargetedCadence,
             response: createResponse(.setTargetedCadence, success),
             status: statusData,
             statusDelay: 0,
@@ -569,6 +603,7 @@ public final class FTMSControlPointHandler {
     private func handleSetTargetResistanceLevel(_ data: Data) -> CommandResult {
         if !state.hasControl {
             return CommandResult(
+                command: .setTargetResistanceLevel,
                 response: createResponse(.setTargetResistanceLevel, controlNotPermitted),
                 status: nil,
                 statusDelay: 0,
@@ -579,6 +614,7 @@ public final class FTMSControlPointHandler {
 
         guard data.count >= 3 else {
             return CommandResult(
+                command: .setTargetResistanceLevel,
                 response: createResponse(.setTargetResistanceLevel, invalidParameter),
                 status: nil,
                 statusDelay: 0,
@@ -591,6 +627,7 @@ public final class FTMSControlPointHandler {
         let message = "FTMS: SetTargetResistanceLevel -> not supported (resistance: \(Double(resistance) * 0.1))"
 
         return CommandResult(
+            command: .setTargetResistanceLevel,
             response: createResponse(.setTargetResistanceLevel, opCodeNotSupported),
             status: nil,
             statusDelay: 0,
@@ -602,6 +639,7 @@ public final class FTMSControlPointHandler {
     private func handleUnsupportedOpcode(_ opcode: UInt8) -> CommandResult {
         let message = "FTMS: Opcode \(String(format: "0x%02X", opcode)) -> not supported"
         return CommandResult(
+            command: nil,
             response: Data([responseCode, opcode, opCodeNotSupported]),
             status: nil,
             statusDelay: 0,
@@ -613,6 +651,7 @@ public final class FTMSControlPointHandler {
     private func handleUnknownOpcode(_ opcode: UInt8) -> CommandResult {
         let message = "FTMS: Unknown opcode \(String(format: "0x%02X", opcode)) -> not supported"
         return CommandResult(
+            command: nil,
             response: Data([responseCode, opcode, opCodeNotSupported]),
             status: nil,
             statusDelay: 0,
