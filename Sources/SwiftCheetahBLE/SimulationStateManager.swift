@@ -122,10 +122,14 @@ public final class SimulationStateManager: ObservableObject {
     // MARK: - Event Logging
 
     public func log(_ message: String) {
+        // Maintain backward compatibility with eventLog
         eventLog.append(message)
         if eventLog.count > 200 {
             eventLog.removeFirst(eventLog.count - 200)
         }
+
+        // Also log to standardized error handler for debugging
+        ErrorHandler.shared.logValidation(message, context: ["component": "SimulationStateManager"])
     }
 
     public func clearEventLog() {

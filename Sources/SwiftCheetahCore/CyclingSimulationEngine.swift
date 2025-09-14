@@ -86,18 +86,47 @@ public final class CyclingSimulationEngine: @unchecked Sendable {
         if let cadence = safeCadence {
             let cadenceValidation = validator.validateCadence(cadence, power: safePower)
             if !cadenceValidation.isValid {
-                print("CyclingSimulationEngine: Cadence validation - \(cadenceValidation.message)")
+                ErrorHandler.shared.logValidation(
+                    "Cadence validation - \(cadenceValidation.message)",
+                    context: [
+                        "component": "CyclingSimulationEngine",
+                        "originalCadence": "\(input.manualCadence ?? 0)",
+                        "validatedCadence": "\(cadence)",
+                        "power": "\(safePower)"
+                    ]
+                )
             }
         }
 
         if !powerValidation.isValid {
-            print("CyclingSimulationEngine: Power validation - \(powerValidation.message)")
+            ErrorHandler.shared.logValidation(
+                "Power validation - \(powerValidation.message)",
+                context: [
+                    "component": "CyclingSimulationEngine",
+                    "originalPower": "\(input.targetPower)",
+                    "safePower": "\(safePower)"
+                ]
+            )
         }
         if !gradeValidation.isValid {
-            print("CyclingSimulationEngine: Grade validation - \(gradeValidation.message)")
+            ErrorHandler.shared.logValidation(
+                "Grade validation - \(gradeValidation.message)",
+                context: [
+                    "component": "CyclingSimulationEngine",
+                    "originalGrade": "\(input.gradePercent)",
+                    "safeGrade": "\(safeGrade)"
+                ]
+            )
         }
         if !randomnessValidation.isValid {
-            print("CyclingSimulationEngine: Randomness validation - \(randomnessValidation.message)")
+            ErrorHandler.shared.logValidation(
+                "Randomness validation - \(randomnessValidation.message)",
+                context: [
+                    "component": "CyclingSimulationEngine",
+                    "originalRandomness": "\(input.randomness)",
+                    "safeRandomness": "\(safeRandomness)"
+                ]
+            )
         }
 
         // Calculate power variance using validated values

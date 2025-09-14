@@ -479,13 +479,18 @@ struct CompactMetric: View {
     let label: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.tertiary)
-            Text(value)
-                .font(.system(.caption, design: .monospaced, weight: .semibold))
-                .foregroundStyle(.primary)
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                Text(value)
+                    .font(.system(.caption, design: .monospaced, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
         }
         .frame(minWidth: 80, alignment: .leading)
     }

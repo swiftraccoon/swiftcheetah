@@ -12,7 +12,6 @@ enum GATT {
 
     // FTMS Characteristics
     static var ftmsIndoorBikeData: CBUUID { CBUUID(string: "2AD2") }
-    static var ftmsTreadmillData: CBUUID { CBUUID(string: "2ACD") }
     static var ftmsFitnessMachineFeature: CBUUID { CBUUID(string: "2ACC") }
     static var ftmsFitnessMachineStatus: CBUUID { CBUUID(string: "2ADA") }
     static var ftmsControlPoint: CBUUID { CBUUID(string: "2AD9") }

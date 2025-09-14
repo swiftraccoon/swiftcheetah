@@ -231,14 +231,6 @@ final class PeripheralManagerBusinessLogicTests: XCTestCase {
     }
 
     // MARK: - Helper Functions
-
-    private func standardDeviation(_ values: [Int]) -> Double {
-        let doubleValues = values.map { Double($0) }
-        let mean = doubleValues.reduce(0, +) / Double(values.count)
-        let squaredDiffs = doubleValues.map { pow($0 - mean, 2) }
-        let variance = squaredDiffs.reduce(0, +) / Double(values.count)
-        return sqrt(variance)
-    }
 }
 
 /// Tests for data flow and state management patterns

@@ -58,26 +58,22 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var controlPointHandler = FTMSControlPointHandler()
     private var simulationEngine = CyclingSimulationEngine()
     private var notificationScheduler = BLENotificationScheduler()
-    private var stateManager = SimulationStateManager()
 
     private var manager: CBPeripheralManager!
     private var options = Options()
     private var lastPowerUpdate: TimeInterval = Date().timeIntervalSince1970
 
     // Services/Characteristics
-    private var ftmsService: CBMutableService?
     private var ftmsIndoorBikeData: CBMutableCharacteristic?
     private var ftmsFeature: CBMutableCharacteristic?
     private var ftmsStatus: CBMutableCharacteristic?
     private var ftmsControlPoint: CBMutableCharacteristic?
     private var ftmsSupportedPowerRange: CBMutableCharacteristic?
 
-    private var cpsService: CBMutableService?
     private var cpsMeasurement: CBMutableCharacteristic?
     private var cpsFeature: CBMutableCharacteristic?
     private var cpsSensorLocation: CBMutableCharacteristic?
 
-    private var rscService: CBMutableService?
     private var rscMeasurement: CBMutableCharacteristic?
     private var rscFeature: CBMutableCharacteristic?
     private var rscSensorLocation: CBMutableCharacteristic?
@@ -197,10 +193,9 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             ftmsSupportedPowerRange?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Supported Power Range")]
             let s = CBMutableService(type: GATT.fitnessMachine, primary: true)
             s.characteristics = [ftmsFeature!, ftmsIndoorBikeData!, ftmsStatus!, ftmsControlPoint!, ftmsSupportedPowerRange!]
-            ftmsService = s
             servicesPendingAdd += 1
             manager.add(s)
-        } else { ftmsService = nil }
+        }
 
         // CPS
         if options.advertiseCPS {
@@ -216,10 +211,9 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             cpsSensorLocation?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Sensor Location")]
             let s = CBMutableService(type: GATT.cyclingPower, primary: true)
             s.characteristics = [cpsMeasurement!, cpsFeature!, cpsSensorLocation!]
-            cpsService = s
             servicesPendingAdd += 1
             manager.add(s)
-        } else { cpsService = nil }
+        }
 
         // RSC
         if options.advertiseRSC {
@@ -234,10 +228,9 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             rscSensorLocation?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Sensor Location")]
             let s = CBMutableService(type: GATT.runningSpeedCadence, primary: true)
             s.characteristics = [rscMeasurement!, rscFeature!, rscSensorLocation!]
-            rscService = s
             servicesPendingAdd += 1
             manager.add(s)
-        } else { rscService = nil }
+        }
     }
 
     /// Start periodic notifications per service (FTMS 4Hz, CPS ≤4Hz, RSC 2Hz).
@@ -373,6 +366,11 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
                                                      powerW: (ftmsIncludePower && watts != 0) ? watts : nil)
         if manager.updateValue(payload, for: ch, onSubscribedCentrals: nil) == false {
             pendingUpdates.append((ch, payload))
+            ErrorHandler.shared.logBLE(
+                "FTMS Indoor Bike Data transmission failed, queued for retry",
+                severity: .warning,
+                context: ["characteristic": "ftmsIndoorBikeData", "queueSize": "\(pendingUpdates.count)"]
+            )
         }
     }
 
@@ -385,6 +383,11 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
                                                  crankTime1024: cadence > 0 ? cadTimeTicks : nil)
         if manager.updateValue(payload, for: ch, onSubscribedCentrals: nil) == false {
             pendingUpdates.append((ch, payload))
+            ErrorHandler.shared.logBLE(
+                "CPS Measurement transmission failed, queued for retry",
+                severity: .warning,
+                context: ["characteristic": "cpsMeasurement", "queueSize": "\(pendingUpdates.count)"]
+            )
         }
     }
 
@@ -393,6 +396,11 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         let payload = BLEEncoding.rscMeasurement(speedMps: speedMps, cadence: cadence)
         if manager.updateValue(payload, for: ch, onSubscribedCentrals: nil) == false {
             pendingUpdates.append((ch, payload))
+            ErrorHandler.shared.logBLE(
+                "RSC Measurement transmission failed, queued for retry",
+                severity: .warning,
+                context: ["characteristic": "rscMeasurement", "queueSize": "\(pendingUpdates.count)"]
+            )
         }
     }
 }
@@ -626,7 +634,11 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
     }
 
     @MainActor private func log(_ line: String) {
+        // Maintain backward compatibility with eventLog
         eventLog.append(line)
         if eventLog.count > 200 { eventLog.removeFirst(eventLog.count - 200) }
+
+        // Also log to standardized error handler with BLE category
+        ErrorHandler.shared.logBLE(line, severity: .info, context: ["component": "PeripheralManager"])
     }
 }

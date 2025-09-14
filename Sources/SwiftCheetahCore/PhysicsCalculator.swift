@@ -174,18 +174,47 @@ public struct PhysicsCalculator {
         // With power on descent, iterate from terminal velocity
         var v = v_terminal
 
-        for _ in 0..<10 {
+        for iteration in 0..<10 {
             let F_air = 0.5 * params.cda * params.airDensity * v * v
             let F_required = F_air - F_gravity_parallel + F_rolling
             let P_required = F_required * v
 
             let error = effectivePower - P_required
 
+            // Check for numerical instability
+            if !v.isFinite || v <= 0 {
+                ErrorHandler.shared.logSimulation(
+                    "Physics calculation numerical instability detected",
+                    severity: .warning,
+                    context: [
+                        "power": "\(effectivePower)",
+                        "grade": "\(gradeDecimal * 100)",
+                        "iteration": "\(iteration)",
+                        "velocity": "\(v)"
+                    ]
+                )
+                return max(0.5, min(30, v_terminal)) // Fallback to safe value
+            }
+
             // Damped adjustment to prevent oscillation
             let adjustment = error / (params.massKg * v + params.cda * params.airDensity * v * v)
             v += adjustment * 0.5
 
             if abs(error) < 5 { break }
+
+            // Log convergence issues on final iteration
+            if iteration == 9 && abs(error) >= 5 {
+                ErrorHandler.shared.logSimulation(
+                    "Physics calculation failed to converge within 10 iterations",
+                    severity: .warning,
+                    context: [
+                        "power": "\(effectivePower)",
+                        "grade": "\(gradeDecimal * 100)",
+                        "finalError": "\(error)",
+                        "finalVelocity": "\(v)"
+                    ]
+                )
+            }
         }
 
         // Reasonable bounds for descent

@@ -28,6 +28,7 @@
 		1A00000D0000000000000007 /* FTMSControlPointHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000007 /* FTMSControlPointHandler.swift */; };
 		1A00000D0000000000000008 /* BLENotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000008 /* BLENotificationScheduler.swift */; };
 		1A00000D0000000000000009 /* SimulationStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000009 /* SimulationStateManager.swift */; };
+		1A00000D000000000000000A /* ErrorHandling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000A /* ErrorHandling.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +55,7 @@
 		1A10000E0000000000000007 /* FTMSControlPointHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FTMSControlPointHandler.swift; path = ../Sources/SwiftCheetahBLE/FTMSControlPointHandler.swift; sourceTree = SOURCE_ROOT; };
 		1A10000E0000000000000008 /* BLENotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLENotificationScheduler.swift; path = ../Sources/SwiftCheetahBLE/BLENotificationScheduler.swift; sourceTree = SOURCE_ROOT; };
 		1A10000E0000000000000009 /* SimulationStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SimulationStateManager.swift; path = ../Sources/SwiftCheetahBLE/SimulationStateManager.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E000000000000000A /* ErrorHandling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ErrorHandling.swift; path = ../Sources/SwiftCheetahCore/ErrorHandling.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,6 +101,7 @@
 				1A10000E0000000000000007 /* FTMSControlPointHandler.swift */,
 				1A10000E0000000000000008 /* BLENotificationScheduler.swift */,
 				1A10000E0000000000000009 /* SimulationStateManager.swift */,
+				1A10000E000000000000000A /* ErrorHandling.swift */,
 				1A10000B0000000000000001 /* Info.plist */,
 			);
 			path = SwiftCheetahApp;
@@ -195,6 +198,7 @@
 				1A00000D0000000000000007 /* FTMSControlPointHandler.swift in Sources */,
 				1A00000D0000000000000008 /* BLENotificationScheduler.swift in Sources */,
 				1A00000D0000000000000009 /* SimulationStateManager.swift in Sources */,
+				1A00000D000000000000000A /* ErrorHandling.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
