@@ -150,7 +150,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
                 isResting: false
             )
             let state = simulationEngine.update(with: input)
-            updateLiveStats(speedMps: state.speedMps, watts: state.powerWatts, cadence: state.cadenceRpm)
+            updateLiveStats(simState: state)
         }
     }
 
@@ -282,7 +282,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             notifyFTMS(watts: wattsToSend, cadence: cadenceToSend)
         }
         advanceCounters(dt: dt, cadence: cad)
-        updateLiveStats(speedMps: state.speedMps, watts: realisticWatts, cadence: cad)
+        updateLiveStats(simState: state)
     }
 
     /// CPS periodic updates: same physics + cadence pipeline, then notify CPS Measurement.
@@ -310,7 +310,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             notifyCPS(watts: wattsToSend, cadence: cadenceToSend, includeWheel: cpsIncludeSpeed)
         }
         advanceCounters(dt: dt, cadence: cad)
-        updateLiveStats(speedMps: state.speedMps, watts: realisticWatts, cadence: cad)
+        updateLiveStats(simState: state)
     }
 
     /// RSC periodic updates: expose running-like speed/cadence if enabled (simple cadence reuse).
@@ -349,21 +349,11 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         wheelTimeTicks = UInt16((Date().timeIntervalSince1970 * 2048).truncatingRemainder(dividingBy: 65536))
     }
 
-    private func updateLiveStats(speedMps v: Double, watts: Int, cadence: Int) {
-        // Get latest simulation state for detailed info
-        let input = CyclingSimulationEngine.SimulationInput(
-            targetPower: self.watts,
-            manualCadence: cadenceMode == .manual ? cadenceRpm : nil,
-            gradePercent: gradePercent,
-            randomness: randomness,
-            isResting: false
-        )
-        let simState = simulationEngine.update(with: input)
-
+    private func updateLiveStats(simState: CyclingSimulationEngine.SimulationState) {
         stats = LiveStats(
-            speedKmh: v * 3.6,
-            powerW: watts,
-            cadenceRpm: cadence,
+            speedKmh: simState.speedMps * 3.6,
+            powerW: simState.powerWatts,
+            cadenceRpm: simState.cadenceRpm,
             mode: cadenceMode == .auto ? "AUTO" : "MANUAL",
             gear: "\(simState.gear.front)x\(simState.gear.rear)",
             targetCadence: Int(simState.targetCadence.rounded()),

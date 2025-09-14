@@ -577,16 +577,18 @@ struct PerformanceGraphCard: View {
 
                         guard !data.isEmpty, maxValue > 0 else { return }
 
-                        // Downsample for performance - show every 5th point
-                        let step = max(1, data.count / 120)  // Show ~120 points max
+                        // Plot all points to preserve historical accuracy
+                        let step = 1
+                        var isFirst = true
 
                         for index in stride(from: 0, to: data.count, by: step) {
                             let value = data[index]
                             let x = width * CGFloat(index) / CGFloat(max(1, data.count - 1))
                             let y = height - (height * CGFloat(value) / maxValue)
 
-                            if index == 0 {
+                            if isFirst {
                                 path.move(to: CGPoint(x: x, y: y))
+                                isFirst = false
                             } else {
                                 path.addLine(to: CGPoint(x: x, y: y))
                             }
@@ -608,8 +610,8 @@ struct PerformanceGraphCard: View {
 
                         path.move(to: CGPoint(x: 0, y: height))
 
-                        // Downsample for performance
-                        let step = max(1, data.count / 120)
+                        // Plot all points to preserve historical accuracy
+                        let step = 1
 
                         for index in stride(from: 0, to: data.count, by: step) {
                             let value = data[index]
@@ -705,9 +707,9 @@ struct PerformanceGraphCard: View {
 
     func maxValueForMetric() -> Double {
         switch selectedMetric {
-        case 0: return max(500, powerHistory.max() ?? 500)
-        case 1: return max(150, cadenceHistory.max() ?? 150)
-        case 2: return max(60, speedHistory.max() ?? 60)
+        case 0: return 500  // Fixed scale for power (watts)
+        case 1: return 150  // Fixed scale for cadence (rpm)
+        case 2: return 60   // Fixed scale for speed (km/h)
         default: return 100
         }
     }
