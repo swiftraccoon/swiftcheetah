@@ -97,8 +97,29 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var servicesPendingAdd: Int = 0
     private var pendingAdvertData: [String: Any] = [:]
     // Live stats for UI
-    public struct LiveStats: Sendable { public var speedKmh: Double; public var powerW: Int; public var cadenceRpm: Int; public var mode: String; public var gear: String; public var targetCadence: Int; public var fatigue: Double; public var noise: Double; public var gradePercent: Double }
-    @Published public private(set) var stats: LiveStats = LiveStats(speedKmh: 25.0, powerW: 250, cadenceRpm: 90, mode: "AUTO", gear: "2x5", targetCadence: 90, fatigue: 0, noise: 0, gradePercent: 0)
+    public struct LiveStats: Sendable {
+        public var speedKmh: Double
+        public var powerW: Int
+        public var cadenceRpm: Int
+        public var mode: String
+        public var gear: String
+        public var targetCadence: Int
+        public var fatigue: Double
+        public var noise: Double
+        public var gradePercent: Double
+    }
+
+    @Published public private(set) var stats = LiveStats(
+        speedKmh: 25.0,
+        powerW: 250,
+        cadenceRpm: 90,
+        mode: "AUTO",
+        gear: "2x5",
+        targetCadence: 90,
+        fatigue: 0,
+        noise: 0,
+        gradePercent: 0
+    )
 
     // Rolling counters for CPS
     private var revCount: UInt16 = 0
@@ -248,9 +269,34 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     /// CPS tick rate adapts to cadence (≤4Hz) to match crank event timing.
     private func scheduleNextCPSTick() {
         cpsTimer?.invalidate()
-        let cad = max(0, cadenceMode == .auto ? Int(cadenceMgr.update(power: Double(watts), grade: gradePercent, speedMps: speedMps, dt: 0.25).rounded()) : cadenceRpm)
-        let interval = cad > 0 ? min(0.25, 60.0 / Double(cad)) : 0.25
-        cpsTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in self?.tickCPS() }
+
+        // Calculate cadence based on mode
+        let calculatedCadence: Int
+        if cadenceMode == .auto {
+            let cadenceValue = cadenceMgr.update(
+                power: Double(watts),
+                grade: gradePercent,
+                speedMps: speedMps,
+                dt: 0.25
+            )
+            calculatedCadence = Int(cadenceValue.rounded())
+        } else {
+            calculatedCadence = cadenceRpm
+        }
+        let cad = max(0, calculatedCadence)
+
+        // Calculate timer interval based on cadence
+        let interval: Double
+        if cad > 0 {
+            let cadenceBasedInterval = 60.0 / Double(cad)
+            interval = min(0.25, cadenceBasedInterval)  // Cap at 4Hz max
+        } else {
+            interval = 0.25  // Default interval when cadence is zero
+        }
+
+        cpsTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            self?.tickCPS()
+        }
     }
 
     /// FTMS periodic updates: compute realistic watts (variance + trainer tau),
@@ -266,7 +312,13 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         speedMps = v
         let cadAuto = Int(cadenceMgr.update(power: Double(realisticWatts), grade: gradePercent, speedMps: v, dt: dt).rounded())
         let cad = cadenceMode == .auto ? cadAuto : cadenceRpm
-        if options.advertiseFTMS { notifyFTMS(watts: ftmsIncludePower ? realisticWatts : 0, cadence: ftmsIncludeCadence ? cad : 0) }
+
+        // Notify FTMS with appropriate values based on include flags
+        if options.advertiseFTMS {
+            let wattsToSend = ftmsIncludePower ? realisticWatts : 0
+            let cadenceToSend = ftmsIncludeCadence ? cad : 0
+            notifyFTMS(watts: wattsToSend, cadence: cadenceToSend)
+        }
         advanceCounters(dt: dt, cadence: cad)
         updateLiveStats(speedMps: v, watts: realisticWatts, cadence: cad)
     }
@@ -282,7 +334,13 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         speedMps = v
         let cadAuto = Int(cadenceMgr.update(power: Double(realisticWatts), grade: gradePercent, speedMps: v, dt: dt).rounded())
         let cad = cadenceMode == .auto ? cadAuto : cadenceRpm
-        if options.advertiseCPS { notifyCPS(watts: cpsIncludePower ? realisticWatts : 0, cadence: cpsIncludeCadence ? cad : 0, includeWheel: cpsIncludeSpeed) }
+
+        // Notify CPS with appropriate values based on include flags
+        if options.advertiseCPS {
+            let wattsToSend = cpsIncludePower ? realisticWatts : 0
+            let cadenceToSend = cpsIncludeCadence ? cad : 0
+            notifyCPS(watts: wattsToSend, cadence: cadenceToSend, includeWheel: cpsIncludeSpeed)
+        }
         advanceCounters(dt: dt, cadence: cad)
         scheduleNextCPSTick()
         updateLiveStats(speedMps: v, watts: realisticWatts, cadence: cad)
@@ -290,8 +348,23 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
 
     /// RSC periodic updates: expose running-like speed/cadence if enabled (simple cadence reuse).
     private func tickRSC() {
-        let cad = cadenceMode == .auto ? Int(cadenceMgr.update(power: Double(watts), grade: gradePercent, speedMps: speedMps, dt: 0.5).rounded()) : cadenceRpm
-        if options.advertiseRSC { notifyRSC(speedMps: speedMps, cadence: cad) }
+        // Calculate cadence based on mode
+        let cad: Int
+        if cadenceMode == .auto {
+            let cadenceValue = cadenceMgr.update(
+                power: Double(watts),
+                grade: gradePercent,
+                speedMps: speedMps,
+                dt: 0.5
+            )
+            cad = Int(cadenceValue.rounded())
+        } else {
+            cad = cadenceRpm
+        }
+
+        if options.advertiseRSC {
+            notifyRSC(speedMps: speedMps, cadence: cad)
+        }
     }
 
     /// Update crank/wheel counters and event times per spec units:
@@ -416,30 +489,60 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
     public func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
         // Provide static values for features and ranges
         if request.characteristic.uuid == GATT.ftmsFitnessMachineFeature {
-            // 8 bytes LE: lower dword includes cadence+power measurement; upper dword includes simulation params + power target
+            // FTMS Feature characteristic requires 8 bytes in little-endian format
+            // Split into two 32-bit words: lower (measurement features) and upper (target/control features)
             var buf = Data(count: 8)
-            // lower
+
+            // Lower 32 bits: Measurement features
             var lower: UInt32 = 0
-            lower |= 1 << 1 // cadence supported
-            lower |= 1 << 14 // power measurement supported
-            // upper
+            lower |= 1 << 1   // Bit 1: Cadence measurement supported
+            lower |= 1 << 14  // Bit 14: Power measurement supported
+
+            // Upper 32 bits: Target setting and control features
             var upper: UInt32 = 0
-            upper |= 1 << 3  // power target setting supported
-            upper |= 1 << 13 // indoor bike simulation supported
-            buf[0] = UInt8(lower & 0xFF); buf[1] = UInt8((lower >> 8) & 0xFF); buf[2] = UInt8((lower >> 16) & 0xFF); buf[3] = UInt8((lower >> 24) & 0xFF)
-            buf[4] = UInt8(upper & 0xFF); buf[5] = UInt8((upper >> 8) & 0xFF); buf[6] = UInt8((upper >> 16) & 0xFF); buf[7] = UInt8((upper >> 24) & 0xFF)
+            upper |= 1 << 3   // Bit 3: Power target setting supported
+            upper |= 1 << 13  // Bit 13: Indoor bike simulation parameters supported
+
+            // Convert to little-endian byte array
+            // Lower 32-bit word (bytes 0-3)
+            buf[0] = UInt8(lower & 0xFF)
+            buf[1] = UInt8((lower >> 8) & 0xFF)
+            buf[2] = UInt8((lower >> 16) & 0xFF)
+            buf[3] = UInt8((lower >> 24) & 0xFF)
+
+            // Upper 32-bit word (bytes 4-7)
+            buf[4] = UInt8(upper & 0xFF)
+            buf[5] = UInt8((upper >> 8) & 0xFF)
+            buf[6] = UInt8((upper >> 16) & 0xFF)
+            buf[7] = UInt8((upper >> 24) & 0xFF)
+
             request.value = buf
-            manager.respond(to: request, withResult: .success); return
+            manager.respond(to: request, withResult: .success)
+            return
         }
         if request.characteristic.uuid == GATT.ftmsSupportedPowerRange {
+            // FTMS Supported Power Range: min, max, and increment values
             var buf = Data()
-            func putS16(_ v: Int16) { let u = UInt16(bitPattern: v); buf.append(UInt8(u & 0xFF)); buf.append(UInt8(u >> 8)) }
-            func putU16(_ v: UInt16) { buf.append(UInt8(v & 0xFF)); buf.append(UInt8(v >> 8)) }
-            putS16(0) // min
-            putS16(1000) // max
-            putU16(1) // increment
+
+            // Helper functions to append little-endian 16-bit values
+            func appendSigned16(_ value: Int16) {
+                let unsigned = UInt16(bitPattern: value)
+                buf.append(UInt8(unsigned & 0xFF))        // Low byte
+                buf.append(UInt8(unsigned >> 8))          // High byte
+            }
+
+            func appendUnsigned16(_ value: UInt16) {
+                buf.append(UInt8(value & 0xFF))           // Low byte
+                buf.append(UInt8(value >> 8))             // High byte
+            }
+
+            appendSigned16(0)     // Minimum power: 0 watts
+            appendSigned16(1000)  // Maximum power: 1000 watts
+            appendUnsigned16(1)   // Increment: 1 watt resolution
+
             request.value = buf
-            manager.respond(to: request, withResult: .success); return
+            manager.respond(to: request, withResult: .success)
+            return
         }
         if request.characteristic.uuid == CBUUID(string: "2A65") { // CPS Feature
             var buf = Data(count: 4)

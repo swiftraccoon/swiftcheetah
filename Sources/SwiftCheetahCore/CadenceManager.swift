@@ -149,15 +149,27 @@ public final class CadenceManager: @unchecked Sendable {
     /// Exhaustive search of gearset to find the gear whose cadence matches target best.
     private func selectGear(for cTarget: Double, speedMps: Double) -> (Int, Int)? {
         guard speedMps >= 0.5 else { return nil }
+
         var best: (front: Int, rear: Int)?
         var bestErr = Double.greatestFiniteMagnitude
-        for f in gearset.chainrings {
-            for r in gearset.cassette {
-                let c = cadenceFromGear(speedMps: speedMps, front: f, rear: r)
-                let err = abs(c - cTarget)
-                if err < bestErr { bestErr = err; best = (f, r) }
+
+        // Find the gear combination that produces cadence closest to target
+        for chainring in gearset.chainrings {
+            for cog in gearset.cassette {
+                let actualCadence = cadenceFromGear(
+                    speedMps: speedMps,
+                    front: chainring,
+                    rear: cog
+                )
+                let error = abs(actualCadence - cTarget)
+
+                if error < bestErr {
+                    bestErr = error
+                    best = (chainring, cog)
+                }
             }
         }
+
         return best
     }
 
@@ -186,18 +198,34 @@ public final class CadenceManager: @unchecked Sendable {
 
     /// Probabilistic shift decision (Poisson-like), influenced by cadence error and grade.
     private func checkGearShift(cTarget: Double, grade: Double, speedMps: Double, now: TimeInterval) {
-        let cGear = cadenceFromGear(speedMps: speedMps, front: currentGear.front, rear: currentGear.rear)
-        if cGear == 0 || speedMps < 0.5 { return }
+        let currentGearCadence = cadenceFromGear(
+            speedMps: speedMps,
+            front: currentGear.front,
+            rear: currentGear.rear
+        )
+
+        // Skip shifting if not moving or cadence is zero
+        if currentGearCadence == 0 || speedMps < 0.5 { return }
+
+        // Check shift cooldown timers
         let timeSinceRear = now - lastRearShift
         let timeSinceFront = now - lastFrontShift
         let canRear = timeSinceRear >= 2.0
         let canFront = timeSinceFront >= 4.0
-        let cadenceError = abs(cTarget - cGear)
-        let baseRate = 1.0 / 60.0
-        let errorRate = (cadenceError / 20.0) * (2.0 / 60.0)
-        let gradeRate = abs(grade) > 5 ? 1.0 / 60.0 : 0
+
+        // Calculate shift probability based on multiple factors
+        let cadenceError = abs(cTarget - currentGearCadence)
+
+        // Shift rate components (events per second)
+        let baseRate = 1.0 / 60.0                         // Base shift rate: 1 per minute
+        let errorRate = (cadenceError / 20.0) * (2.0 / 60.0)  // Error-driven: up to 2 per minute
+        let gradeRate = abs(grade) > 5 ? 1.0 / 60.0 : 0      // Grade-driven: 1 per minute on hills
+
         let totalRate = baseRate + errorRate + gradeRate
-        let pShift = 1 - exp(-totalRate * 0.25) // assume ~4 Hz control internally
+
+        // Convert rate to probability (Poisson process with 4Hz sampling)
+        let controlFrequency = 0.25  // 250ms between checks
+        let pShift = 1 - exp(-totalRate * controlFrequency)
         if Double.random(in: 0...1) < pShift {
             if let target = selectGear(for: cTarget, speedMps: speedMps) {
                 let next = stepOneGearToward(current: currentGear, desired: target, now: now)
