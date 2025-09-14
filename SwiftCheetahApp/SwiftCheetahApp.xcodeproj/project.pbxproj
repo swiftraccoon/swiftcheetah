@@ -23,6 +23,7 @@
 		1A00000D0000000000000001 /* CadenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000001 /* CadenceManager.swift */; };
 		1A00000D0000000000000003 /* OrnsteinUhlenbeckVariance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */; };
 		1A00000D0000000000000004 /* RandomUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000004 /* RandomUtility.swift */; };
+		1A00000D0000000000000005 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000005 /* Configuration.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 		1A10000E0000000000000001 /* CadenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CadenceManager.swift; path = ../Sources/SwiftCheetahCore/CadenceManager.swift; sourceTree = SOURCE_ROOT; };
 		1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OrnsteinUhlenbeckVariance.swift; path = ../Sources/SwiftCheetahCore/OrnsteinUhlenbeckVariance.swift; sourceTree = SOURCE_ROOT; };
 		1A10000E0000000000000004 /* RandomUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RandomUtility.swift; path = ../Sources/SwiftCheetahCore/RandomUtility.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000005 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Configuration.swift; path = ../Sources/SwiftCheetahCore/Configuration.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +86,7 @@
 				1A10000E0000000000000001 /* CadenceManager.swift */,
 				1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */,
 				1A10000E0000000000000004 /* RandomUtility.swift */,
+				1A10000E0000000000000005 /* Configuration.swift */,
 				1A10000B0000000000000001 /* Info.plist */,
 			);
 			path = SwiftCheetahApp;
@@ -175,6 +178,7 @@
 				1A00000D0000000000000001 /* CadenceManager.swift in Sources */,
 				1A00000D0000000000000003 /* OrnsteinUhlenbeckVariance.swift in Sources */,
 				1A00000D0000000000000004 /* RandomUtility.swift in Sources */,
+				1A00000D0000000000000005 /* Configuration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -13,7 +13,7 @@ import Foundation
 public struct PhysicsCalculator {
 
     // MARK: - Physical Constants
-    private static let gravity: Double = 9.81  // m/s²
+    private static let gravity = PhysicsConstants.gravity
 
     // MARK: - Parameters
 
@@ -31,17 +31,18 @@ public struct PhysicsCalculator {
         public var efficiency: Double
 
         public init(
-            massKg: Double = 75.0,
-            crr: Double = 0.004,
-            cda: Double = 0.32,
-            airDensity: Double = 1.225,
-            efficiency: Double = 0.97
+            massKg: Double? = nil,
+            crr: Double? = nil,
+            cda: Double? = nil,
+            airDensity: Double? = nil,
+            efficiency: Double? = nil
         ) {
-            self.massKg = massKg
-            self.crr = crr
-            self.cda = cda
-            self.airDensity = airDensity
-            self.efficiency = efficiency
+            let config = CyclingConfiguration()
+            self.massKg = massKg ?? config.rider.totalMass
+            self.crr = crr ?? config.rider.crr
+            self.cda = cda ?? config.rider.cdA
+            self.airDensity = airDensity ?? PhysicsConstants.airDensity
+            self.efficiency = efficiency ?? config.rider.drivetrainEfficiency
         }
     }
 
@@ -59,8 +60,8 @@ public struct PhysicsCalculator {
         params: Parameters = Parameters()
     ) -> Double {
         // Validate and clamp inputs
-        let safePower = max(0, min(2000, powerWatts.isFinite ? powerWatts : 0))
-        let safeGrade = max(-30, min(30, gradePercent.isFinite ? gradePercent : 0))
+        let safePower = max(ValidationLimits.minPower, min(ValidationLimits.maxPower, powerWatts.isFinite ? powerWatts : 0))
+        let safeGrade = max(ValidationLimits.minGrade, min(ValidationLimits.maxGrade, gradePercent.isFinite ? gradePercent : 0))
 
         // Convert grade from percent to decimal
         let gradeDecimal = safeGrade / 100.0
@@ -93,7 +94,7 @@ public struct PhysicsCalculator {
     ) -> Double {
         // Better initial guess based on power (assuming flat ground)
         var v = effectivePower > 0 ? sqrt(effectivePower / (params.cda * params.airDensity * 0.5)) : 1.0
-        v = max(1.0, min(10.0, v))  // Reasonable starting point (3.6-36 km/h)
+        v = max(1.0, min(AlgorithmParameters.NewtonRaphson.initialSpeed, v))  // Reasonable starting point
 
         // Newton-Raphson iterations
         for _ in 0..<15 {
@@ -118,17 +119,17 @@ public struct PhysicsCalculator {
             let dP_dv = F_gravity + F_rolling + 1.5 * params.cda * params.airDensity * v * v
 
             // Avoid division by zero
-            if abs(dP_dv) < 0.001 { break }
+            if abs(dP_dv) < AlgorithmParameters.NewtonRaphson.tolerance { break }
 
             // Update speed estimate
             let delta = error / dP_dv
             v += delta
 
             // Keep speed positive
-            v = max(0.1, v)
+            v = max(AlgorithmParameters.NewtonRaphson.minSpeed, v)
 
             // Convergence check
-            if abs(delta) < 0.001 { break }
+            if abs(delta) < AlgorithmParameters.NewtonRaphson.tolerance { break }
         }
 
         // Apply realistic bounds based on conditions
@@ -193,7 +194,7 @@ public struct PhysicsCalculator {
 
     /// Apply realistic speed bounds based on conditions
     private static func applySpeedBounds(speed: Double, grade: Double, power: Double) -> Double {
-        var minSpeed = 0.5   // 1.8 km/h - trackstand speed
+        var minSpeed = ValidationLimits.trackstandSpeed
         var maxSpeed = 25.0  // 90 km/h - high but safe max
 
         // Adjust bounds based on grade and power
@@ -201,7 +202,7 @@ public struct PhysicsCalculator {
             maxSpeed = 5  // Very slow on steep climbs with low power
         } else if grade < -10 {
             minSpeed = 5   // Minimum 18 km/h on steep descents
-            maxSpeed = 35  // Up to 126 km/h on very steep descents
+            maxSpeed = ValidationLimits.maxRealisticSpeed
         }
 
         let finalSpeed = max(minSpeed, min(maxSpeed, speed))
@@ -298,9 +299,9 @@ public struct PhysicsCalculator {
     // MARK: - Unit Conversions
 
     public struct SpeedConversions {
-        public static func mpsToKmh(_ mps: Double) -> Double { mps * 3.6 }
-        public static func kmhToMps(_ kmh: Double) -> Double { kmh / 3.6 }
-        public static func mpsToMph(_ mps: Double) -> Double { mps * 2.237 }
-        public static func mphToMps(_ mph: Double) -> Double { mph / 2.237 }
+        public static func mpsToKmh(_ mps: Double) -> Double { mps * PhysicsConstants.Conversion.msToKmh }
+        public static func kmhToMps(_ kmh: Double) -> Double { kmh / PhysicsConstants.Conversion.msToKmh }
+        public static func mpsToMph(_ mps: Double) -> Double { mps * PhysicsConstants.Conversion.msToMph }
+        public static func mphToMps(_ mph: Double) -> Double { mph / PhysicsConstants.Conversion.msToMph }
     }
 }
