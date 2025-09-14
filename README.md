@@ -1,4 +1,4 @@
-# <img src="swiftcheetah_icon.png" alt="SwiftCheetah Icon" width="48" height="48" style="border-radius: 12px; margin-right: 12px; vertical-align: middle;"> SwiftCheetah (macOS)
+# <img src="swiftcheetah_icon.png" alt="SwiftCheetah Icon" width="64" height="64"> SwiftCheetah (macOS)
 
 ![SwiftCheetah App](swiftcheetah.png)
 
