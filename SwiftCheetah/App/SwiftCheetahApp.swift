@@ -3,7 +3,7 @@ import SwiftUI
 // BLE sources are part of the same target
 #endif
 
-/// Minimal demo app wiring BLE metrics into a SwiftUI view.
+/// Main SwiftCheetah app entry point for macOS BLE cycling trainer.
 @main
 struct SwiftCheetahApp: App {
     @StateObject private var ble = BLEManager()

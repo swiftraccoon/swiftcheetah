@@ -19,7 +19,6 @@
 		1A00000A0000000000000001 /* Flags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000A0000000000000001 /* Flags.swift */; };
 		1A00000B0000000000000001 /* PeripheralManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000C0000000000000001 /* PeripheralManager.swift */; };
 		1A00000C0000000000000002 /* PowerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000D0000000000000002 /* PowerManager.swift */; };
-		1A00000E0000000000000001 /* BLEEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000001 /* BLEEncoding.swift */; };
 		1A00000D0000000000000001 /* CadenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000001 /* CadenceManager.swift */; };
 		1A00000D0000000000000003 /* OrnsteinUhlenbeckVariance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */; };
 		1A00000D0000000000000004 /* RandomUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000004 /* RandomUtility.swift */; };
@@ -29,33 +28,36 @@
 		1A00000D0000000000000008 /* BLENotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000008 /* BLENotificationScheduler.swift */; };
 		1A00000D0000000000000009 /* SimulationStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000009 /* SimulationStateManager.swift */; };
 		1A00000D000000000000000A /* ErrorHandling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000A /* ErrorHandling.swift */; };
+		1A00000D000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A10000B0000000000000002 /* Assets.xcassets */; };
+		1A00000E0000000000000001 /* BLEEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000001 /* BLEEncoding.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		1A1000000000000000000001 /* SwiftCheetahApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftCheetahApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		1A1000010000000000000001 /* SwiftCheetahApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwiftCheetahApp.swift; path = ../App/SwiftCheetahDemoApp/SwiftCheetahApp.swift; sourceTree = SOURCE_ROOT; };
-		1A1000020000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = ../App/SwiftCheetahDemoApp/ContentView.swift; sourceTree = SOURCE_ROOT; };
-		1A1000030000000000000001 /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLEManager.swift; path = ../Sources/SwiftCheetahBLE/BLEManager.swift; sourceTree = SOURCE_ROOT; };
-		1A1000040000000000000001 /* Characteristics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Characteristics.swift; path = ../Sources/SwiftCheetahBLE/Characteristics.swift; sourceTree = SOURCE_ROOT; };
-		1A1000050000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Models.swift; path = ../Sources/SwiftCheetahBLE/Models.swift; sourceTree = SOURCE_ROOT; };
-		1A1000060000000000000001 /* Parsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Parsers.swift; path = ../Sources/SwiftCheetahBLE/Parsers.swift; sourceTree = SOURCE_ROOT; };
-		1A1000070000000000000001 /* PhysicsCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PhysicsCalculator.swift; path = ../Sources/SwiftCheetahCore/PhysicsCalculator.swift; sourceTree = SOURCE_ROOT; };
-		1A1000080000000000000001 /* VarianceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VarianceManager.swift; path = ../Sources/SwiftCheetahCore/VarianceManager.swift; sourceTree = SOURCE_ROOT; };
-		1A1000090000000000000001 /* ValueValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ValueValidator.swift; path = ../Sources/SwiftCheetahCore/ValueValidator.swift; sourceTree = SOURCE_ROOT; };
-		1A10000A0000000000000001 /* Flags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Flags.swift; path = ../Sources/SwiftCheetahCore/Flags.swift; sourceTree = SOURCE_ROOT; };
+		1A1000010000000000000001 /* SwiftCheetahApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwiftCheetahApp.swift; path = SwiftCheetah/App/SwiftCheetahApp.swift; sourceTree = SOURCE_ROOT; };
+		1A1000020000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = SwiftCheetah/Views/ContentView.swift; sourceTree = SOURCE_ROOT; };
+		1A1000030000000000000001 /* BLEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLEManager.swift; path = Packages/SwiftCheetahBLE/BLEManager.swift; sourceTree = SOURCE_ROOT; };
+		1A1000040000000000000001 /* Characteristics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Characteristics.swift; path = Packages/SwiftCheetahBLE/Characteristics.swift; sourceTree = SOURCE_ROOT; };
+		1A1000050000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Models.swift; path = Packages/SwiftCheetahBLE/Models.swift; sourceTree = SOURCE_ROOT; };
+		1A1000060000000000000001 /* Parsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Parsers.swift; path = Packages/SwiftCheetahBLE/Parsers.swift; sourceTree = SOURCE_ROOT; };
+		1A1000070000000000000001 /* PhysicsCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PhysicsCalculator.swift; path = Packages/SwiftCheetahCore/PhysicsCalculator.swift; sourceTree = SOURCE_ROOT; };
+		1A1000080000000000000001 /* VarianceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VarianceManager.swift; path = Packages/SwiftCheetahCore/VarianceManager.swift; sourceTree = SOURCE_ROOT; };
+		1A1000090000000000000001 /* ValueValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ValueValidator.swift; path = Packages/SwiftCheetahCore/ValueValidator.swift; sourceTree = SOURCE_ROOT; };
+		1A10000A0000000000000001 /* Flags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Flags.swift; path = Packages/SwiftCheetahCore/Flags.swift; sourceTree = SOURCE_ROOT; };
 		1A10000B0000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		1A10000C0000000000000001 /* PeripheralManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PeripheralManager.swift; path = ../Sources/SwiftCheetahBLE/PeripheralManager.swift; sourceTree = SOURCE_ROOT; };
-        1A10000D0000000000000002 /* PowerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PowerManager.swift; path = ../Sources/SwiftCheetahCore/PowerManager.swift; sourceTree = SOURCE_ROOT; };
-		1A10000F0000000000000001 /* BLEEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLEEncoding.swift; path = ../Sources/SwiftCheetahBLE/BLEEncoding.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000001 /* CadenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CadenceManager.swift; path = ../Sources/SwiftCheetahCore/CadenceManager.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OrnsteinUhlenbeckVariance.swift; path = ../Sources/SwiftCheetahCore/OrnsteinUhlenbeckVariance.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000004 /* RandomUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RandomUtility.swift; path = ../Sources/SwiftCheetahCore/RandomUtility.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000005 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Configuration.swift; path = ../Sources/SwiftCheetahCore/Configuration.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000006 /* CyclingSimulationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CyclingSimulationEngine.swift; path = ../Sources/SwiftCheetahCore/CyclingSimulationEngine.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000007 /* FTMSControlPointHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FTMSControlPointHandler.swift; path = ../Sources/SwiftCheetahBLE/FTMSControlPointHandler.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000008 /* BLENotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLENotificationScheduler.swift; path = ../Sources/SwiftCheetahBLE/BLENotificationScheduler.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000009 /* SimulationStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SimulationStateManager.swift; path = ../Sources/SwiftCheetahBLE/SimulationStateManager.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E000000000000000A /* ErrorHandling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ErrorHandling.swift; path = ../Sources/SwiftCheetahCore/ErrorHandling.swift; sourceTree = SOURCE_ROOT; };
+		1A10000B0000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = SwiftCheetah/Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		1A10000C0000000000000001 /* PeripheralManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PeripheralManager.swift; path = Packages/SwiftCheetahBLE/PeripheralManager.swift; sourceTree = SOURCE_ROOT; };
+		1A10000D0000000000000002 /* PowerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PowerManager.swift; path = Packages/SwiftCheetahCore/PowerManager.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000001 /* CadenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CadenceManager.swift; path = Packages/SwiftCheetahCore/CadenceManager.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OrnsteinUhlenbeckVariance.swift; path = Packages/SwiftCheetahCore/OrnsteinUhlenbeckVariance.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000004 /* RandomUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RandomUtility.swift; path = Packages/SwiftCheetahCore/RandomUtility.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000005 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Configuration.swift; path = Packages/SwiftCheetahCore/Configuration.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000006 /* CyclingSimulationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CyclingSimulationEngine.swift; path = Packages/SwiftCheetahCore/CyclingSimulationEngine.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000007 /* FTMSControlPointHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FTMSControlPointHandler.swift; path = Packages/SwiftCheetahBLE/FTMSControlPointHandler.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000008 /* BLENotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLENotificationScheduler.swift; path = Packages/SwiftCheetahBLE/BLENotificationScheduler.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000009 /* SimulationStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SimulationStateManager.swift; path = Packages/SwiftCheetahBLE/SimulationStateManager.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E000000000000000A /* ErrorHandling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ErrorHandling.swift; path = Packages/SwiftCheetahCore/ErrorHandling.swift; sourceTree = SOURCE_ROOT; };
+		1A10000F0000000000000001 /* BLEEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLEEncoding.swift; path = Packages/SwiftCheetahBLE/BLEEncoding.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,6 +105,7 @@
 				1A10000E0000000000000009 /* SimulationStateManager.swift */,
 				1A10000E000000000000000A /* ErrorHandling.swift */,
 				1A10000B0000000000000001 /* Info.plist */,
+				1A10000B0000000000000002 /* Assets.xcassets */,
 			);
 			path = SwiftCheetahApp;
 			sourceTree = SOURCE_ROOT;
@@ -167,6 +170,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A00000D000000000000000B /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -213,7 +217,9 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 6A3L897WFW;
-				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_FILE = SwiftCheetah/App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SwiftCheetah;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -221,10 +227,10 @@
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.swiftcheetah;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "SwiftCheetah";
 				SDKROOT = macosx;
-				SWIFT_VERSION = 6.0;
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -236,17 +242,19 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 6A3L897WFW;
-				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_FILE = SwiftCheetah/App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SwiftCheetah;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.swiftcheetah;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "SwiftCheetah";
 				SDKROOT = macosx;
-				SWIFT_VERSION = 6.0;
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};

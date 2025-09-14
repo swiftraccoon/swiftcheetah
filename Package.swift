@@ -14,12 +14,12 @@ let package = Package(
     targets: [
         .target(
             name: "SwiftCheetahCore",
-            path: "Sources/SwiftCheetahCore"
+            path: "Packages/SwiftCheetahCore"
         ),
         .target(
             name: "SwiftCheetahBLE",
             dependencies: ["SwiftCheetahCore"],
-            path: "Sources/SwiftCheetahBLE"
+            path: "Packages/SwiftCheetahBLE"
         ),
         .testTarget(
             name: "SwiftCheetahCoreTests",
