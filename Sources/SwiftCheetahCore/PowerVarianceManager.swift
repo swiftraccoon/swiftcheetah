@@ -22,10 +22,10 @@ public final class PowerVarianceManager: @unchecked Sendable {
         let cvEvent = cvTotal * sqrt(0.15)
 
         let aMicro = exp(-dt / tauMicro)
-        xMicro = xMicro * aMicro + cvMicro * sqrt(1 - aMicro * aMicro) * randn()
+        xMicro = xMicro * aMicro + cvMicro * sqrt(1 - aMicro * aMicro) * RandomUtility.randn()
 
         let aMacro = exp(-dt / tauMacro)
-        xMacro = xMacro * aMacro + cvMacro * sqrt(1 - aMacro * aMacro) * randn()
+        xMacro = xMacro * aMacro + cvMacro * sqrt(1 - aMacro * aMacro) * RandomUtility.randn()
 
         let eventsPerMinute = 0.2 + 1.8 * (Double(randomness) / 100.0)
         let lambda = eventsPerMinute / 60.0
@@ -47,14 +47,9 @@ public final class PowerVarianceManager: @unchecked Sendable {
         return max(minFrac, min(maxFrac, total))
     }
 
-    private func randn() -> Double {
-        let u1 = max(1e-10, Double.random(in: 0...1))
-        let u2 = Double.random(in: 0...1)
-        return sqrt(-2 * log(u1)) * cos(2 * .pi * u2)
-    }
 
     private func clamp(mean: Double, sd: Double, min: Double, max: Double) -> Double {
-        let v = mean + sd * randn()
+        let v = mean + sd * RandomUtility.randn()
         return Swift.max(min, Swift.min(max, v))
     }
 }

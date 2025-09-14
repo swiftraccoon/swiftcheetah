@@ -71,7 +71,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var powerMgr = PowerManager()
     private var varMgr = PowerVarianceManager()
     private var cadenceMgr = CadenceManager()
-    private var physics = SpeedFromPower.Params()
+    private var physicsParams = PhysicsCalculator.Parameters()
 
     // Services/Characteristics
     private var ftmsService: CBMutableService?
@@ -122,7 +122,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             let dt = 1.0
             let variation = varMgr.update(randomness: randomness, targetPower: watts, dt: dt)
             let realisticWatts = powerMgr.update(targetPower: watts, cadenceRPM: cadenceRpm, variation: variation, isResting: false)
-            let v = SpeedFromPower.calculateSpeed(power: Double(realisticWatts), gradePercent: gradePercent, params: physics)
+            let v = PhysicsCalculator.calculateSpeed(powerWatts: Double(realisticWatts), gradePercent: gradePercent, params: physicsParams)
 
             let cad: Int
             if cadenceMode == .auto {
@@ -262,7 +262,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         // Compute speed from power + grade; then AUTO cadence via CadenceManager
         let variation = varMgr.update(randomness: randomness, targetPower: watts, dt: dt)
         let realisticWatts = powerMgr.update(targetPower: watts, cadenceRPM: cadenceRpm, variation: variation, isResting: false)
-        let v = SpeedFromPower.calculateSpeed(power: Double(realisticWatts), gradePercent: gradePercent, params: physics)
+        let v = PhysicsCalculator.calculateSpeed(powerWatts: Double(realisticWatts), gradePercent: gradePercent, params: physicsParams)
         speedMps = v
         let cadAuto = Int(cadenceMgr.update(power: Double(realisticWatts), grade: gradePercent, speedMps: v, dt: dt).rounded())
         let cad = cadenceMode == .auto ? cadAuto : cadenceRpm
@@ -278,7 +278,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         lastPowerUpdate = now
         let variation = varMgr.update(randomness: randomness, targetPower: watts, dt: dt)
         let realisticWatts = powerMgr.update(targetPower: watts, cadenceRPM: cadenceRpm, variation: variation, isResting: false)
-        let v = SpeedFromPower.calculateSpeed(power: Double(realisticWatts), gradePercent: gradePercent, params: physics)
+        let v = PhysicsCalculator.calculateSpeed(powerWatts: Double(realisticWatts), gradePercent: gradePercent, params: physicsParams)
         speedMps = v
         let cadAuto = Int(cadenceMgr.update(power: Double(realisticWatts), grade: gradePercent, speedMps: v, dt: dt).rounded())
         let cad = cadenceMode == .auto ? cadAuto : cadenceRpm

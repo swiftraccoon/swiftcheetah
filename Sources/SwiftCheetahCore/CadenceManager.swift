@@ -213,7 +213,7 @@ public final class CadenceManager: @unchecked Sendable {
     private func updateNoise(dt: Double) {
         let k = 2.0, sigma = 0.6
         let alpha = exp(-k * dt)
-        noise = noise * alpha + sigma * sqrt(1 - alpha * alpha) * randn()
+        noise = noise * alpha + sigma * sqrt(1 - alpha * alpha) * RandomUtility.randn()
         noise = max(-2, min(2, noise))
     }
 
@@ -228,11 +228,6 @@ public final class CadenceManager: @unchecked Sendable {
         fatigue = min(1.0, max(0.0, fatigue))
     }
 
-    private func randn() -> Double {
-        let u1 = max(1e-10, Double.random(in: 0...1))
-        let u2 = Double.random(in: 0...1)
-        return sqrt(-2 * log(u1)) * cos(2 * .pi * u2)
-    }
 
     /// Check for standing/sitting transitions based on power and grade.
     /// Uses dt-based Poisson process for realistic timing.

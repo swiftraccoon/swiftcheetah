@@ -22,7 +22,8 @@
 		1A00000C0000000000000003 /* PowerVarianceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000D0000000000000003 /* PowerVarianceManager.swift */; };
 		1A00000E0000000000000001 /* BLEEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000001 /* BLEEncoding.swift */; };
 		1A00000D0000000000000001 /* CadenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000001 /* CadenceManager.swift */; };
-		1A00000D0000000000000002 /* SpeedFromPower.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000002 /* SpeedFromPower.swift */; };
+		1A00000D0000000000000003 /* OrnsteinUhlenbeckVariance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */; };
+		1A00000D0000000000000004 /* RandomUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E0000000000000004 /* RandomUtility.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,7 +44,8 @@
 		1A10000D0000000000000003 /* PowerVarianceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PowerVarianceManager.swift; path = ../Sources/SwiftCheetahCore/PowerVarianceManager.swift; sourceTree = SOURCE_ROOT; };
 		1A10000F0000000000000001 /* BLEEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLEEncoding.swift; path = ../Sources/SwiftCheetahBLE/BLEEncoding.swift; sourceTree = SOURCE_ROOT; };
 		1A10000E0000000000000001 /* CadenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CadenceManager.swift; path = ../Sources/SwiftCheetahCore/CadenceManager.swift; sourceTree = SOURCE_ROOT; };
-		1A10000E0000000000000002 /* SpeedFromPower.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SpeedFromPower.swift; path = ../Sources/SwiftCheetahCore/SpeedFromPower.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OrnsteinUhlenbeckVariance.swift; path = ../Sources/SwiftCheetahCore/OrnsteinUhlenbeckVariance.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E0000000000000004 /* RandomUtility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RandomUtility.swift; path = ../Sources/SwiftCheetahCore/RandomUtility.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +84,9 @@
 				1A10000A0000000000000001 /* Flags.swift */,
 				1A10000D0000000000000002 /* PowerManager.swift */,
 				1A10000D0000000000000003 /* PowerVarianceManager.swift */,
+				1A10000E0000000000000001 /* CadenceManager.swift */,
+				1A10000E0000000000000003 /* OrnsteinUhlenbeckVariance.swift */,
+				1A10000E0000000000000004 /* RandomUtility.swift */,
 				1A10000B0000000000000001 /* Info.plist */,
 			);
 			path = SwiftCheetahApp;
@@ -172,7 +177,8 @@
 				1A00000C0000000000000003 /* PowerVarianceManager.swift in Sources */,
 				1A00000E0000000000000001 /* BLEEncoding.swift in Sources */,
 				1A00000D0000000000000001 /* CadenceManager.swift in Sources */,
-				1A00000D0000000000000002 /* SpeedFromPower.swift in Sources */,
+				1A00000D0000000000000003 /* OrnsteinUhlenbeckVariance.swift in Sources */,
+				1A00000D0000000000000004 /* RandomUtility.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

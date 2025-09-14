@@ -85,14 +85,14 @@ public final class OrnsteinUhlenbeckVariance: @unchecked Sendable {
         // Using exponential decay with proper scaling for dt-independence
         // x[n+1] = x[n] * exp(-dt/tau) + sigma * sqrt(1 - exp(-2*dt/tau)) * N(0,1)
         let alphaMicro = exp(-safeDt / tauMicro)
-        let noiseMicro = randn()
+        let noiseMicro = RandomUtility.randn()
         xMicro = xMicro * alphaMicro +
                  cvMicro * sqrt(1 - alphaMicro * alphaMicro) * noiseMicro
 
         // Update macro variations (low-frequency effort changes)
         // Same exponential decay formula with longer time constant
         let alphaMacro = exp(-safeDt / tauMacro)
-        let noiseMacro = randn()
+        let noiseMacro = RandomUtility.randn()
         xMacro = xMacro * alphaMacro +
                  cvMacro * sqrt(1 - alphaMacro * alphaMacro) * noiseMacro
 
@@ -168,19 +168,6 @@ public final class OrnsteinUhlenbeckVariance: @unchecked Sendable {
 
     // MARK: - Private Methods
 
-    /// Generate standard normal random variable using Box-Muller transform
-    /// - Returns: Sample from N(0,1)
-    private func randn() -> Double {
-        // Box-Muller transform: converts uniform to normal distribution
-        let u1 = Double.random(in: 0..<1)
-        let u2 = Double.random(in: 0..<1)
-
-        // Avoid log(0) by using small epsilon
-        let epsilon = 1e-10
-        let safeU1 = max(epsilon, u1)
-
-        return sqrt(-2 * log(safeU1)) * cos(2 * .pi * u2)
-    }
 
     /// Sample from truncated normal distribution
     /// - Parameters:
@@ -190,7 +177,7 @@ public final class OrnsteinUhlenbeckVariance: @unchecked Sendable {
     ///   - max: Maximum allowed value
     /// - Returns: Clamped sample
     private func clampNormal(mean: Double, sd: Double, min: Double, max: Double) -> Double {
-        let value = mean + sd * randn()
+        let value = mean + sd * RandomUtility.randn()
         return Swift.max(min, Swift.min(max, value))
     }
 }
