@@ -1,15 +1,12 @@
-<img src="swiftcheetah_icon.png" alt="SwiftCheetah Icon" width="64" height="64" align="left" style="margin-right: 16px;"> SwiftCheetah (macOS)
-====================
+# <img src="swiftcheetah_icon.png" alt="SwiftCheetah Icon" width="48" height="48" style="border-radius: 12px; margin-right: 12px; vertical-align: middle;"> SwiftCheetah (macOS)
 
 ![SwiftCheetah App](swiftcheetah.png)
 
-Overview
---------
+## Overview
 
 SwiftCheetah is a macOS app (Swift/SwiftUI) that acts as a Bluetooth LE peripheral for fitness software. It broadcasts FTMS, CPS and RSC services and generates realistic indoor‑bike metrics using research‑backed physics and cadence models. The codebase is split into a pure core (engine) and the BLE/app layers.
 
-Status
-------
+## Status
 
 ### Completed Features
 
@@ -43,41 +40,37 @@ Status
 - Dead code elimination
 - Packaging and release instructions
 
-System Requirements
--------------------
+## System Requirements
 
 - macOS 26 (Tahoe) runtime
 - Xcode 26+ and Swift 6+ for building
 
-Repository Layout
------------------
+## Repository Layout
 
 - `Package.swift` — Swift package manifest (core + BLE)
-- `Sources/SwiftCheetahCore/` — engine modules (physics, cadence, validation, configuration, utilities)
-- `Sources/SwiftCheetahBLE/` — BLE layer (peripheral manager, control handlers, schedulers, encoders)
-- `SwiftCheetahApp/SwiftCheetahApp.xcodeproj` — Xcode project for macOS app
+- `Packages/SwiftCheetahCore/` — engine modules (physics, cadence, validation, configuration, utilities)
+- `Packages/SwiftCheetahBLE/` — BLE layer (peripheral manager, control handlers, schedulers, encoders)
+- `SwiftCheetah/` — macOS app GUI (App/, Views/, Resources/)
+- `SwiftCheetahApp.xcodeproj` — Xcode project for macOS app (at repository root)
 - `Tests/` — comprehensive unit tests with research validation, optional integration test harness
 
-Build and Run
--------------
+## Build and Run
 
 - Xcode (recommended)
-  1. Open `SwiftCheetahApp/SwiftCheetahApp.xcodeproj`
+  1. Open `SwiftCheetahApp.xcodeproj`
   2. Select the `SwiftCheetahApp` scheme
-  3. Set Signing (Automatic); build and run on “My Mac”
+  3. Set Signing (Automatic); build and run on "My Mac"
 
 - SwiftPM (engine only)
   - `swift build`
   - `swift test` (engine + BLE encoding tests)
 
-CI
---
+## CI
 
 - GitHub Actions workflow builds the app target, runs unit tests and SwiftLint on push/PR.
 - BLE integration tests are opt‑in; they require a central to run on the same machine and are skipped in CI by default.
 
-Design Notes
--------------
+## Design Notes
 
 **Clean Architecture**: Separated concerns with focused components replacing the original god class:
 
@@ -89,15 +82,13 @@ Design Notes
 
 **BLE Protocol**: Full FTMS compliance with 20+ control commands, proper response/status handling, and dynamic notification scheduling.
 
-Known Limitations
------------------
+## Known Limitations
 
 - GUI layout and spacing need refinement
 
-Integration Test Harness (Optional)
------------------------------------
+## Integration Test Harness (Optional)
 
 - To run the central‑side integration test locally:
   - In Xcode: Edit Scheme → Test → Environment Variables → set `BLE_INTEGRATION=1`
-  - Or via CLI: `BLE_INTEGRATION=1 xcodebuild -project SwiftCheetahApp/SwiftCheetahApp.xcodeproj -scheme SwiftCheetahApp -destination 'platform=macOS' test`
+  - Or via CLI: `BLE_INTEGRATION=1 xcodebuild -project SwiftCheetahApp.xcodeproj -scheme SwiftCheetahApp -destination 'platform=macOS' test`
   - The test scans, connects, subscribes to FTMS Indoor Bike Data, and asserts a notification payload.

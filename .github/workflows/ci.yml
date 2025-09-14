@@ -20,7 +20,7 @@ jobs:
 
       - name: Build Xcode project
         run: |
-          xcodebuild -project SwiftCheetahApp/SwiftCheetahApp.xcodeproj \
+          xcodebuild -project SwiftCheetahApp.xcodeproj \
             -scheme SwiftCheetahApp -configuration Debug \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO build
