@@ -44,6 +44,9 @@ public final class SimulationStateManager: ObservableObject {
     // MARK: - Live Statistics
     @Published public var liveStats: LiveStats
 
+    // MARK: - Validation
+    private let validator: ValueValidator
+
     // MARK: - Types
 
     public enum BroadcastState: String, Sendable {
@@ -113,6 +116,7 @@ public final class SimulationStateManager: ObservableObject {
 
     public init() {
         self.liveStats = LiveStats()
+        self.validator = ValueValidator(category: .enthusiast)
     }
 
     // MARK: - Event Logging
@@ -157,7 +161,82 @@ public final class SimulationStateManager: ObservableObject {
     }
 
     public func updateFromControlState(_ controlState: FTMSControlPointHandler.ControlState) {
-        gradePercent = controlState.gradePercent
-        watts = controlState.targetPower
+        // Validate and set values using validator
+        setValidatedGradePercent(controlState.gradePercent)
+        setValidatedWatts(controlState.targetPower)
+    }
+
+    // MARK: - Validation Methods
+
+    /// Validate and set watts value with logging
+    public func setValidatedWatts(_ newWatts: Int) {
+        let validation = validator.validatePower(Double(newWatts))
+        if !validation.isValid {
+            log("Power validation: \(validation.message)")
+        }
+
+        // Clamp to safe limits to prevent system instability
+        let safeWatts = Int(validator.clampToSafeLimits(Double(newWatts), parameter: "power"))
+        watts = safeWatts
+
+        if safeWatts != newWatts {
+            log("Power clamped from \(newWatts)W to \(safeWatts)W")
+        }
+    }
+
+    /// Validate and set cadence with logging
+    public func setValidatedCadenceRpm(_ newCadence: Int) {
+        let validation = validator.validateCadence(Double(newCadence), power: Double(watts))
+        if !validation.isValid {
+            log("Cadence validation: \(validation.message)")
+        }
+
+        let safeCadence = Int(validator.clampToSafeLimits(Double(newCadence), parameter: "cadence"))
+        cadenceRpm = safeCadence
+
+        if safeCadence != newCadence {
+            log("Cadence clamped from \(newCadence) RPM to \(safeCadence) RPM")
+        }
+    }
+
+    /// Validate and set grade percent with logging
+    public func setValidatedGradePercent(_ newGrade: Double) {
+        let validation = validator.validateGradient(newGrade)
+        if !validation.isValid {
+            log("Grade validation: \(validation.message)")
+        }
+
+        let safeGrade = validator.clampToSafeLimits(newGrade, parameter: "gradient")
+        gradePercent = safeGrade
+
+        if abs(safeGrade - newGrade) > 0.001 {
+            log("Grade clamped from \(newGrade)% to \(safeGrade)%")
+        }
+    }
+
+    /// Validate and set randomness with logging
+    public func setValidatedRandomness(_ newRandomness: Int) {
+        let validation = validator.validateRandomness(newRandomness)
+        if !validation.isValid {
+            log("Randomness validation: \(validation.message)")
+        }
+
+        let safeRandomness = Int(validator.clampToSafeLimits(Double(newRandomness), parameter: "randomness"))
+        randomness = safeRandomness
+
+        if safeRandomness != newRandomness {
+            log("Randomness clamped from \(newRandomness) to \(safeRandomness)")
+        }
+    }
+
+    /// Validate complete simulation state
+    public func validateCurrentState() -> [ValueValidator.ValidationResult] {
+        return validator.validateSimulationState(
+            power: Double(watts),
+            speed: speedMps,
+            cadence: Double(cadenceRpm),
+            grade: gradePercent,
+            randomness: randomness
+        )
     }
 }

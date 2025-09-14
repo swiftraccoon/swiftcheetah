@@ -230,12 +230,26 @@ public final class ValueValidator {
         return ValidationResult(level: .valid, message: "Heart rate within normal range", parameter: "heartRate")
     }
 
+    /// Validate randomness setting (0-100)
+    public func validateRandomness(_ randomness: Int) -> ValidationResult {
+        if randomness < 0 {
+            return ValidationResult(level: .error, message: "Randomness cannot be negative", parameter: "randomness")
+        }
+
+        if randomness > 100 {
+            return ValidationResult(level: .error, message: "Randomness cannot exceed 100%", parameter: "randomness")
+        }
+
+        return ValidationResult(level: .valid, message: "Randomness within valid range", parameter: "randomness")
+    }
+
     /// Validate complete simulation state
     public func validateSimulationState(
         power: Double,
         speed: Double,
         cadence: Double,
         grade: Double,
+        randomness: Int? = nil,
         heartRate: Int? = nil,
         duration: TimeInterval = 0
     ) -> [ValidationResult] {
@@ -246,6 +260,10 @@ public final class ValueValidator {
         results.append(validateSpeed(speed, power: power, grade: grade))
         results.append(validateCadence(cadence, power: power))
         results.append(validateGradient(grade))
+
+        if let randomness = randomness {
+            results.append(validateRandomness(randomness))
+        }
 
         if let hr = heartRate {
             results.append(validateHeartRate(hr))
@@ -292,6 +310,8 @@ public final class ValueValidator {
             return (min: -30, max: 30, recommended: -10...10)
         case "heartrate", "hr":
             return (min: 40, max: 200, recommended: 100...170)
+        case "randomness":
+            return (min: 0, max: 100, recommended: 0...50)
         default:
             return nil
         }

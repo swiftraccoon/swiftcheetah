@@ -46,6 +46,7 @@ public final class CyclingSimulationEngine: @unchecked Sendable {
     private let varianceManager: OrnsteinUhlenbeckVariance
     private let cadenceManager: CadenceManager
     private let physicsParams: PhysicsCalculator.Parameters
+    private let validator: ValueValidator
 
     // Track last update time for delta calculation
     private var lastUpdateTime: TimeInterval
@@ -57,6 +58,7 @@ public final class CyclingSimulationEngine: @unchecked Sendable {
         self.varianceManager = OrnsteinUhlenbeckVariance()
         self.cadenceManager = CadenceManager()
         self.physicsParams = physicsParams
+        self.validator = ValueValidator(category: .enthusiast)
         self.lastUpdateTime = Date().timeIntervalSince1970
     }
 
@@ -66,43 +68,75 @@ public final class CyclingSimulationEngine: @unchecked Sendable {
         let dt = max(0.001, now - lastUpdateTime)
         lastUpdateTime = now
 
-        // Calculate power variance
+        // Validate input parameters and clamp critical values to safe limits
+        let safePower = validator.clampToSafeLimits(Double(input.targetPower), parameter: "power")
+        let safeGrade = validator.clampToSafeLimits(input.gradePercent, parameter: "gradient")
+        let safeRandomness = validator.clampToSafeLimits(Double(input.randomness), parameter: "randomness")
+
+        var safeCadence: Double?
+        if let manualCadence = input.manualCadence {
+            safeCadence = validator.clampToSafeLimits(Double(manualCadence), parameter: "cadence")
+        }
+
+        // Log any validation warnings for debugging
+        let powerValidation = validator.validatePower(safePower)
+        let gradeValidation = validator.validateGradient(safeGrade)
+        let randomnessValidation = validator.validateRandomness(Int(safeRandomness))
+
+        if let cadence = safeCadence {
+            let cadenceValidation = validator.validateCadence(cadence, power: safePower)
+            if !cadenceValidation.isValid {
+                print("CyclingSimulationEngine: Cadence validation - \(cadenceValidation.message)")
+            }
+        }
+
+        if !powerValidation.isValid {
+            print("CyclingSimulationEngine: Power validation - \(powerValidation.message)")
+        }
+        if !gradeValidation.isValid {
+            print("CyclingSimulationEngine: Grade validation - \(gradeValidation.message)")
+        }
+        if !randomnessValidation.isValid {
+            print("CyclingSimulationEngine: Randomness validation - \(randomnessValidation.message)")
+        }
+
+        // Calculate power variance using validated values
         let variation = varianceManager.update(
-            randomness: Double(input.randomness),
-            targetPower: Double(input.targetPower),
+            randomness: safeRandomness,
+            targetPower: safePower,
             dt: dt
         )
 
         // Apply power management (smoothing and variation)
         let realisticWatts = powerManager.update(
-            targetPower: input.targetPower,
-            cadenceRPM: input.manualCadence ?? 90,
+            targetPower: Int(safePower),
+            cadenceRPM: safeCadence.map { Int($0) } ?? 90,
             variation: variation,
             isResting: input.isResting
         )
 
-        // Calculate speed from power and grade
+        // Calculate speed from power and grade using validated values
         let speedMps = PhysicsCalculator.calculateSpeed(
             powerWatts: Double(realisticWatts),
-            gradePercent: input.gradePercent,
+            gradePercent: safeGrade,
             params: physicsParams
         )
 
-        // Calculate cadence (auto or manual)
+        // Calculate cadence (auto or manual) using validated values
         let cadenceRpm: Int
-        if let manual = input.manualCadence {
-            cadenceRpm = manual
+        if let safeCadence = safeCadence {
+            cadenceRpm = Int(safeCadence)
             // Update cadence manager state even in manual mode for gear tracking
             _ = cadenceManager.update(
                 power: Double(realisticWatts),
-                grade: input.gradePercent,
+                grade: safeGrade,
                 speedMps: speedMps,
                 dt: dt
             )
         } else {
             let autoValue = cadenceManager.update(
                 power: Double(realisticWatts),
-                grade: input.gradePercent,
+                grade: safeGrade,
                 speedMps: speedMps,
                 dt: dt
             )
