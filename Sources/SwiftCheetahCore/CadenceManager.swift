@@ -60,6 +60,8 @@ public final class CadenceManager: @unchecked Sendable {
     private var lastFrontShift: TimeInterval = 0
     private var noise: Double = 0
     private var lastTarget: Double = 85
+    private var standing: Bool = false
+    private var lastStandingChange: TimeInterval = 0
 
     public init(gearset: Gearset = Gearset(), prefs: RiderPrefs = RiderPrefs()) {
         self.gearset = gearset
@@ -77,6 +79,10 @@ public final class CadenceManager: @unchecked Sendable {
     public func update(power: Double, grade: Double, speedMps: Double, dt rawDt: Double) -> Double {
         let now = Date().timeIntervalSince1970
         let dt = max(0.01, min(2.0, rawDt))
+
+        // 0) Check standing/sitting transitions (affects dynamics)
+        checkStanding(power: power, grade: grade, dt: dt, now: now)
+
         // 1) Target cadence from physiology (logistic) + grade adjustments
         let cTarget = targetCadence(power: power, grade: grade)
         lastTarget = cTarget
@@ -99,7 +105,8 @@ public final class CadenceManager: @unchecked Sendable {
         if speedMps < 1.5 { cGear = min(50, cGear) }
 
         // 4) First-order response to gear cadence
-        let tau = 0.8
+        // Faster response when standing (0.4s) vs sitting (0.8s)
+        let tau = standing ? 0.4 : 0.8
         let alpha = 1 - exp(-dt / tau)
         cadence = cadence + alpha * (cGear - cadence)
 
@@ -127,8 +134,8 @@ public final class CadenceManager: @unchecked Sendable {
     }
 
     /// Expose internal state for diagnostics and UI.
-    public func getState() -> (cadence: Double, target: Double, gear: (front: Int, rear: Int), fatigue: Double, noise: Double) {
-        return (cadence, lastTarget, currentGear, fatigue, noise)
+    public func getState() -> (cadence: Double, target: Double, gear: (front: Int, rear: Int), fatigue: Double, noise: Double, standing: Bool) {
+        return (cadence, lastTarget, currentGear, fatigue, noise, standing)
     }
 
     /// Gear physics: RPM = 60 * speed / circumference * (rear/front).
@@ -225,5 +232,46 @@ public final class CadenceManager: @unchecked Sendable {
         let u1 = max(1e-10, Double.random(in: 0...1))
         let u2 = Double.random(in: 0...1)
         return sqrt(-2 * log(u1)) * cos(2 * .pi * u2)
+    }
+
+    /// Check for standing/sitting transitions based on power and grade.
+    /// Uses dt-based Poisson process for realistic timing.
+    private func checkStanding(power: Double, grade: Double, dt: Double, now: TimeInterval) {
+        // Higher chance to stand on steep hills or high power efforts
+        let standingUrgency = (grade > 8 || power > 400) ? 0.3 : 0.05
+        let pStand = 1 - exp(-standingUrgency * dt)
+
+        // Cooldown period to prevent rapid transitions
+        let timeSinceChange = now - lastStandingChange
+        let canChange = timeSinceChange >= 3.0  // 3 second minimum between transitions
+
+        if !standing && canChange && Double.random(in: 0...1) < pStand {
+            standing = true
+            lastStandingChange = now
+            // Standing causes temporary cadence drop
+            cadence = max(0, cadence - 10)
+        } else if standing && canChange {
+            // Exit standing with proper hazard rate (not linear probability)
+            let pSit = 1 - exp(-0.1 * dt) // 0.1/s exit rate
+            if Double.random(in: 0...1) < pSit {
+                standing = false
+                lastStandingChange = now
+                // Sitting causes small cadence increase as rhythm resumes
+                cadence = min(180, cadence + 3)
+            }
+        }
+    }
+
+    /// Reset to initial state
+    public func reset() {
+        cadence = 85
+        currentGear = (gearset.chainrings.first ?? 50, gearset.cassette[4])
+        fatigue = 0
+        lastRearShift = 0
+        lastFrontShift = 0
+        noise = 0
+        lastTarget = 85
+        standing = false
+        lastStandingChange = 0
     }
 }

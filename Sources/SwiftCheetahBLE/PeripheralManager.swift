@@ -170,13 +170,23 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         // FTMS
         if options.advertiseFTMS {
             ftmsIndoorBikeData = CBMutableCharacteristic(type: GATT.ftmsIndoorBikeData, properties: [.notify], value: nil, permissions: [])
-            ftmsIndoorBikeData?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Indoor Bike Data")]
+            ftmsIndoorBikeData?.descriptors = [
+                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Indoor Bike Data"),
+                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00])),  // Client Characteristic Configuration
+                CBMutableDescriptor(type: CBUUID(string: "2904"), value: Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))  // Presentation Format
+            ]
             ftmsFeature = CBMutableCharacteristic(type: GATT.ftmsFitnessMachineFeature, properties: [.read], value: nil, permissions: [.readable])
             ftmsFeature?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Feature")]
             ftmsStatus = CBMutableCharacteristic(type: GATT.ftmsFitnessMachineStatus, properties: [.notify], value: nil, permissions: [])
-            ftmsStatus?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Status")]
+            ftmsStatus?.descriptors = [
+                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Status"),
+                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00]))  // Client Characteristic Configuration
+            ]
             ftmsControlPoint = CBMutableCharacteristic(type: GATT.ftmsControlPoint, properties: [.write, .indicate], value: nil, permissions: [.writeable])
-            ftmsControlPoint?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Control Point")]
+            ftmsControlPoint?.descriptors = [
+                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Fitness Machine Control Point"),
+                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00]))  // Client Characteristic Configuration for indications
+            ]
             ftmsSupportedPowerRange = CBMutableCharacteristic(type: GATT.ftmsSupportedPowerRange, properties: [.read], value: nil, permissions: [.readable])
             ftmsSupportedPowerRange?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Supported Power Range")]
             let s = CBMutableService(type: GATT.fitnessMachine, primary: true)
@@ -189,7 +199,11 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         // CPS
         if options.advertiseCPS {
             cpsMeasurement = CBMutableCharacteristic(type: GATT.cpsMeasurement, properties: [.notify], value: nil, permissions: [])
-            cpsMeasurement?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Cycling Power Measurement")]
+            cpsMeasurement?.descriptors = [
+                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Cycling Power Measurement"),
+                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00])),  // Client Characteristic Configuration
+                CBMutableDescriptor(type: CBUUID(string: "2904"), value: Data([0x0B, 0x27, 0xAD, 0x01, 0x00, 0x00, 0x00]))  // Presentation Format: sint16, watts
+            ]
             cpsFeature = CBMutableCharacteristic(type: CBUUID(string: "2A65"), properties: [.read], value: nil, permissions: [.readable])
             cpsFeature?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Cycling Power Feature")]
             cpsSensorLocation = CBMutableCharacteristic(type: CBUUID(string: "2A5D"), properties: [.read], value: nil, permissions: [.readable])
@@ -204,7 +218,10 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         // RSC
         if options.advertiseRSC {
             rscMeasurement = CBMutableCharacteristic(type: GATT.rscMeasurement, properties: [.notify], value: nil, permissions: [])
-            rscMeasurement?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "RSC Measurement")]
+            rscMeasurement?.descriptors = [
+                CBMutableDescriptor(type: CBUUID(string: "2901"), value: "RSC Measurement"),
+                CBMutableDescriptor(type: CBUUID(string: "2902"), value: Data([0x00, 0x00]))  // Client Characteristic Configuration
+            ]
             rscFeature = CBMutableCharacteristic(type: CBUUID(string: "2A54"), properties: [.read], value: nil, permissions: [.readable])
             rscFeature?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "RSC Feature")]
             rscSensorLocation = CBMutableCharacteristic(type: CBUUID(string: "2A5D"), properties: [.read], value: nil, permissions: [.readable])
@@ -464,71 +481,341 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
     private func handleFTMSControlPoint(data: Data) {
         guard let cp = ftmsControlPoint, let status = ftmsStatus else { return }
         let opcode = data[0]
-        // Opcodes
+
+        // FTMS Control Point Opcodes (per FTMS specification)
         let RequestControl: UInt8 = 0x00
         let Reset: UInt8 = 0x01
+        let SetTargetSpeed: UInt8 = 0x02
+        let SetTargetInclination: UInt8 = 0x03
+        let SetTargetResistanceLevel: UInt8 = 0x04
         let SetTargetPower: UInt8 = 0x05
+        let SetTargetHeartRate: UInt8 = 0x06
         let StartOrResume: UInt8 = 0x07
         let StopOrPause: UInt8 = 0x08
+        let SetTargetedExpendedEnergy: UInt8 = 0x09
+        let SetTargetedNumberOfSteps: UInt8 = 0x0A
+        let SetTargetedNumberOfStrides: UInt8 = 0x0B
+        let SetTargetedDistance: UInt8 = 0x0C
+        let SetTargetedTrainingTime: UInt8 = 0x0D
+        let SetTargetedTimeInTwoHeartRateZones: UInt8 = 0x0E
+        let SetTargetedTimeInThreeHeartRateZones: UInt8 = 0x0F
+        let SetTargetedTimeInFiveHeartRateZones: UInt8 = 0x10
         let SetIndoorBikeSimulation: UInt8 = 0x11
+        let SetWheelCircumference: UInt8 = 0x12
+        let SpinDownControl: UInt8 = 0x13
+        let SetTargetedCadence: UInt8 = 0x14
+
+        // Response Codes
         let ResponseCode: UInt8 = 0x80
         let Success: UInt8 = 0x01
-        let OperationFailed: UInt8 = 0x04
+        let OpCodeNotSupported: UInt8 = 0x02
+        let InvalidParameter: UInt8 = 0x03
+        // let OperationFailed: UInt8 = 0x04  // Not currently used
         let ControlNotPermitted: UInt8 = 0x05
 
+        // Status notification codes (per FTMS specification)
+        let StatusReset: UInt8 = 0x01
+        let StatusStoppedOrPaused: UInt8 = 0x02
+        let StatusStartedOrResumed: UInt8 = 0x04
+        let StatusTargetPowerChanged: UInt8 = 0x08
+        let StatusTargetSpeedChanged: UInt8 = 0x10
+        let StatusTargetInclineChanged: UInt8 = 0x11
+        let StatusIndoorBikeSimulationParametersChanged: UInt8 = 0x12
+        let StatusWheelCircumferenceChanged: UInt8 = 0x13
+        let StatusSpinDownStarted: UInt8 = 0x14
+        let StatusSpinDownIgnored: UInt8 = 0x15
+        let StatusTargetCadenceChanged: UInt8 = 0x16
+
+        // Helper function to send indication response (per FTMS spec: must respond within 3 seconds)
         func indicate(_ opcode: UInt8, _ result: UInt8) {
             let resp = Data([ResponseCode, opcode, result])
             if manager.updateValue(resp, for: cp, onSubscribedCentrals: nil) == false {
                 pendingUpdates.append((cp, resp))
             }
         }
-        func notifyStatus(_ payload: Data) {
-            if manager.updateValue(payload, for: status, onSubscribedCentrals: nil) == false {
-                pendingUpdates.append((status, payload))
+
+        // Helper function to send status notifications with timing compliance
+        func notifyStatus(_ payload: Data, delay: TimeInterval = 0) {
+            // Per FTMS spec, status notifications should be sent within 3 seconds
+            if delay > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self = self, let ftmsStatus = self.ftmsStatus else { return }
+                    if self.manager.updateValue(payload, for: ftmsStatus, onSubscribedCentrals: nil) == false {
+                        self.pendingUpdates.append((ftmsStatus, payload))
+                    }
+                }
+            } else {
+                if manager.updateValue(payload, for: status, onSubscribedCentrals: nil) == false {
+                    pendingUpdates.append((status, payload))
+                }
             }
         }
 
+        // Process control point commands
         switch opcode {
         case RequestControl:
-            hasControl = true; indicate(opcode, Success); Task { @MainActor in self.log("FTMS: RequestControl -> success") }
-        case Reset:
-            hasControl = false; isStarted = false; indicate(opcode, Success)
-            notifyStatus(Data([0x01])) // Reset
-            Task { @MainActor in self.log("FTMS: Reset -> success") }
-        case SetTargetPower:
-            if hasControl && data.count >= 3 {
-                let tp = Int(Int16(bitPattern: UInt16(data[1]) | (UInt16(data[2]) << 8)))
-                targetPower = tp; indicate(opcode, Success)
-                var buf = Data([0x08]) // TargetPowerChanged
-                let u = UInt16(bitPattern: Int16(clamping: tp))
-                buf.append(UInt8(truncatingIfNeeded: u & 0xFF)); buf.append(UInt8(truncatingIfNeeded: u >> 8))
-                notifyStatus(buf)
-                Task { @MainActor in self.log("FTMS: SetTargetPower -> \(tp)W") }
-            } else { indicate(opcode, ControlNotPermitted) }
-        case StartOrResume:
-            if hasControl { isStarted = true; indicate(opcode, Success); notifyStatus(Data([0x04])); Task { @MainActor in self.log("FTMS: StartOrResume -> success") } } else { indicate(opcode, ControlNotPermitted) }
-        case StopOrPause:
-            if hasControl { isStarted = false; indicate(opcode, Success); notifyStatus(Data([0x02])); Task { @MainActor in self.log("FTMS: StopOrPause -> success") } } else { indicate(opcode, ControlNotPermitted) }
-        case SetIndoorBikeSimulation:
-            if hasControl && data.count >= 7 {
-                let wind = Int16(bitPattern: UInt16(data[1]) | (UInt16(data[2]) << 8))
-                let grade = Int16(bitPattern: UInt16(data[3]) | (UInt16(data[4]) << 8))
-                simWindSpeedMps = Double(wind) * 0.001
-                gradePercent = Double(grade) * 0.01
-                simCrr = Double(data[5]) * 0.0001
-                simCw = Double(data[6]) * 0.01
+            // Client requesting control of the fitness machine
+            if hasControl {
+                // Already have control - could deny or allow transfer
+                // For compatibility, we'll allow it (like zwack does)
                 indicate(opcode, Success)
-                var buf = Data(count: 7)
-                buf[0] = 0x12
-                let w = Int16(simWindSpeedMps / 0.001); buf[1] = UInt8(truncatingIfNeeded: UInt16(bitPattern: w) & 0xFF); buf[2] = UInt8(truncatingIfNeeded: UInt16(bitPattern: w) >> 8)
-                let g = Int16(gradePercent / 0.01); buf[3] = UInt8(truncatingIfNeeded: UInt16(bitPattern: g) & 0xFF); buf[4] = UInt8(truncatingIfNeeded: UInt16(bitPattern: g) >> 8)
-                buf[5] = UInt8(truncatingIfNeeded: Int(simCrr / 0.0001))
-                buf[6] = UInt8(truncatingIfNeeded: Int(simCw / 0.01))
-                notifyStatus(buf)
-                Task { @MainActor in self.log(String(format: "FTMS: BikeSim wind=%.3f m/s grade=%.2f%% crr=%.4f cw=%.2f", self.simWindSpeedMps, self.gradePercent, self.simCrr, self.simCw)) }
-            } else { indicate(opcode, ControlNotPermitted) }
+                Task { @MainActor in self.log("FTMS: RequestControl -> success (already had control)") }
+            } else {
+                hasControl = true
+                indicate(opcode, Success)
+                Task { @MainActor in self.log("FTMS: RequestControl -> success") }
+            }
+
+        case Reset:
+            // Reset the fitness machine
+            if hasControl {
+                hasControl = false
+                isStarted = false
+                targetPower = 0
+                indicate(opcode, Success)
+                notifyStatus(Data([StatusReset])) // Reset status notification
+                // Send additional status update after short delay
+                notifyStatus(Data([StatusReset]), delay: 0.5)
+                Task { @MainActor in self.log("FTMS: Reset -> success") }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+                Task { @MainActor in self.log("FTMS: Reset -> control not permitted") }
+            }
+
+        case SetTargetPower:
+            // Set target power in watts
+            if hasControl {
+                if data.count >= 3 {
+                    let tp = Int(Int16(bitPattern: UInt16(data[1]) | (UInt16(data[2]) << 8)))
+                    if tp >= 0 && tp <= 4000 {  // Validate reasonable power range
+                        targetPower = tp
+                        indicate(opcode, Success)
+                        // Send status notification with new target power
+                        var buf = Data([StatusTargetPowerChanged])
+                        let u = UInt16(bitPattern: Int16(clamping: tp))
+                        buf.append(UInt8(truncatingIfNeeded: u & 0xFF))
+                        buf.append(UInt8(truncatingIfNeeded: u >> 8))
+                        notifyStatus(buf)
+                        Task { @MainActor in self.log("FTMS: SetTargetPower -> \(tp)W") }
+                    } else {
+                        indicate(opcode, InvalidParameter)
+                        Task { @MainActor in self.log("FTMS: SetTargetPower -> invalid parameter (\(tp)W)") }
+                    }
+                } else {
+                    indicate(opcode, InvalidParameter)
+                    Task { @MainActor in self.log("FTMS: SetTargetPower -> invalid data length") }
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+                Task { @MainActor in self.log("FTMS: SetTargetPower -> control not permitted") }
+            }
+
+        case StartOrResume:
+            // Start or resume the fitness machine
+            if hasControl {
+                if !isStarted {
+                    isStarted = true
+                    indicate(opcode, Success)
+                    notifyStatus(Data([StatusStartedOrResumed]))  // FitnessMachineStartedOrResumedByUser
+                    Task { @MainActor in self.log("FTMS: StartOrResume -> success") }
+                } else {
+                    // Already started - per spec, this should succeed
+                    indicate(opcode, Success)
+                    Task { @MainActor in self.log("FTMS: StartOrResume -> already started") }
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+                Task { @MainActor in self.log("FTMS: StartOrResume -> control not permitted") }
+            }
+
+        case StopOrPause:
+            // Stop or pause the fitness machine
+            if hasControl {
+                if isStarted {
+                    isStarted = false
+                    indicate(opcode, Success)
+                    notifyStatus(Data([StatusStoppedOrPaused]))  // FitnessMachineStoppedOrPausedByUser
+                    Task { @MainActor in self.log("FTMS: StopOrPause -> success") }
+                } else {
+                    // Already stopped - per spec, this should succeed
+                    indicate(opcode, Success)
+                    Task { @MainActor in self.log("FTMS: StopOrPause -> already stopped") }
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+                Task { @MainActor in self.log("FTMS: StopOrPause -> control not permitted") }
+            }
+
+        case SetIndoorBikeSimulation:
+            // Set indoor bike simulation parameters
+            if hasControl {
+                if data.count >= 7 {
+                    let wind = Int16(bitPattern: UInt16(data[1]) | (UInt16(data[2]) << 8))
+                    let grade = Int16(bitPattern: UInt16(data[3]) | (UInt16(data[4]) << 8))
+                    let crr = data[5]
+                    let cw = data[6]
+
+                    // Validate parameters
+                    if abs(wind) <= 32767 && abs(grade) <= 4000 && crr <= 255 && cw <= 255 {
+                        simWindSpeedMps = Double(wind) * 0.001
+                        gradePercent = Double(grade) * 0.01
+                        simCrr = Double(crr) * 0.0001
+                        simCw = Double(cw) * 0.01
+                        indicate(opcode, Success)
+
+                        // Send status notification with simulation parameters
+                        var buf = Data(count: 7)
+                        buf[0] = StatusIndoorBikeSimulationParametersChanged
+                        let w = Int16(simWindSpeedMps / 0.001)
+                        buf[1] = UInt8(truncatingIfNeeded: UInt16(bitPattern: w) & 0xFF)
+                        buf[2] = UInt8(truncatingIfNeeded: UInt16(bitPattern: w) >> 8)
+                        let g = Int16(gradePercent / 0.01)
+                        buf[3] = UInt8(truncatingIfNeeded: UInt16(bitPattern: g) & 0xFF)
+                        buf[4] = UInt8(truncatingIfNeeded: UInt16(bitPattern: g) >> 8)
+                        buf[5] = UInt8(truncatingIfNeeded: Int(simCrr / 0.0001))
+                        buf[6] = UInt8(truncatingIfNeeded: Int(simCw / 0.01))
+                        notifyStatus(buf)
+
+                        Task { @MainActor in
+                            self.log(String(format: "FTMS: BikeSim wind=%.3f m/s grade=%.2f%% crr=%.4f cw=%.2f",
+                                          self.simWindSpeedMps, self.gradePercent, self.simCrr, self.simCw))
+                        }
+                    } else {
+                        indicate(opcode, InvalidParameter)
+                        Task { @MainActor in self.log("FTMS: SetIndoorBikeSimulation -> invalid parameters") }
+                    }
+                } else {
+                    indicate(opcode, InvalidParameter)
+                    Task { @MainActor in self.log("FTMS: SetIndoorBikeSimulation -> invalid data length") }
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+                Task { @MainActor in self.log("FTMS: SetIndoorBikeSimulation -> control not permitted") }
+            }
+
+        case SpinDownControl:
+            // Spin down control (for calibration)
+            if hasControl && data.count >= 2 {
+                let spinDownCommand = data[1]
+                if spinDownCommand == 0x01 {  // Start spin down
+                    indicate(opcode, Success)
+                    notifyStatus(Data([StatusSpinDownStarted]))  // SpinDownStarted
+                    // Simulate spindown completion after delay (normally would monitor actual spindown)
+                    notifyStatus(Data([StatusSpinDownIgnored]), delay: 2.5)  // Send completion status
+                    Task { @MainActor in self.log("FTMS: SpinDownControl -> start") }
+                } else if spinDownCommand == 0x02 {  // Ignore spin down
+                    indicate(opcode, Success)
+                    notifyStatus(Data([StatusSpinDownIgnored]))  // SpinDownIgnored
+                    Task { @MainActor in self.log("FTMS: SpinDownControl -> ignore") }
+                } else {
+                    indicate(opcode, InvalidParameter)
+                }
+            } else {
+                indicate(opcode, hasControl ? InvalidParameter : ControlNotPermitted)
+            }
+
+        case SetTargetResistanceLevel:
+            // Set target resistance level (0.1 unitless increments)
+            if hasControl && data.count >= 3 {
+                let resistance = Int16(bitPattern: UInt16(data[1]) | (UInt16(data[2]) << 8))
+                // For now, we don't implement resistance mode, but acknowledge it
+                indicate(opcode, OpCodeNotSupported)
+                Task { @MainActor in self.log("FTMS: SetTargetResistanceLevel -> not supported (resistance: \(Double(resistance) * 0.1))") }
+            } else {
+                indicate(opcode, hasControl ? InvalidParameter : ControlNotPermitted)
+            }
+
+        case SetTargetHeartRate, SetTargetedExpendedEnergy, SetTargetedNumberOfSteps,
+             SetTargetedNumberOfStrides, SetTargetedDistance, SetTargetedTrainingTime,
+             SetTargetedTimeInTwoHeartRateZones, SetTargetedTimeInThreeHeartRateZones,
+             SetTargetedTimeInFiveHeartRateZones:
+            // These opcodes are not currently supported
+            indicate(opcode, OpCodeNotSupported)
+            Task { @MainActor in self.log("FTMS: Opcode \(String(format: "0x%02X", opcode)) -> not supported") }
+
+        case SetTargetSpeed:
+            // Set target speed (m/s × 100)
+            if hasControl {
+                if data.count >= 3 {
+                    let speedCms = UInt16(data[1]) | (UInt16(data[2]) << 8)
+                    let speedMs = Double(speedCms) / 100.0
+                    // Store target speed for simulation (you could use this for speed control mode)
+                    indicate(opcode, Success)
+                    // Notify target speed changed
+                    var statusData = Data([StatusTargetSpeedChanged])
+                    statusData.append(contentsOf: withUnsafeBytes(of: speedCms.littleEndian) { Data($0) })
+                    notifyStatus(statusData)
+                    Task { @MainActor in self.log("FTMS: SetTargetSpeed \(speedMs) m/s") }
+                } else {
+                    indicate(opcode, InvalidParameter)
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+            }
+
+        case SetTargetInclination:
+            // Set target incline (% × 10, signed)
+            if hasControl {
+                if data.count >= 3 {
+                    let inclineRaw = Int16(bitPattern: UInt16(data[1]) | (UInt16(data[2]) << 8))
+                    let inclinePercent = Double(inclineRaw) / 10.0
+                    gradePercent = inclinePercent
+                    indicate(opcode, Success)
+                    // Notify target incline changed
+                    var statusData = Data([StatusTargetInclineChanged])
+                    statusData.append(contentsOf: withUnsafeBytes(of: inclineRaw.littleEndian) { Data($0) })
+                    notifyStatus(statusData)
+                    Task { @MainActor in self.log("FTMS: SetTargetInclination \(inclinePercent)%") }
+                } else {
+                    indicate(opcode, InvalidParameter)
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+            }
+
+        case SetWheelCircumference:
+            // Set wheel circumference (mm)
+            if hasControl {
+                if data.count >= 3 {
+                    let circumferenceMm = UInt16(data[1]) | (UInt16(data[2]) << 8)
+                    // Store wheel circumference (useful for speed calculations)
+                    indicate(opcode, Success)
+                    // Send wheel circumference changed status
+                    var statusData = Data([StatusWheelCircumferenceChanged])
+                    statusData.append(contentsOf: withUnsafeBytes(of: circumferenceMm.littleEndian) { Data($0) })
+                    notifyStatus(statusData)
+                    Task { @MainActor in self.log("FTMS: SetWheelCircumference \(circumferenceMm)mm") }
+                } else {
+                    indicate(opcode, InvalidParameter)
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+            }
+
+        case SetTargetedCadence:
+            // Set target cadence (RPM × 2)
+            if hasControl {
+                if data.count >= 3 {
+                    let targetCadence = UInt16(data[1]) | (UInt16(data[2]) << 8)
+                    let targetRpm = Double(targetCadence) / 2.0
+                    // Store target cadence for simulation
+                    indicate(opcode, Success)
+                    // Send target cadence changed status
+                    var statusData = Data([StatusTargetCadenceChanged])
+                    statusData.append(contentsOf: withUnsafeBytes(of: targetCadence.littleEndian) { Data($0) })
+                    notifyStatus(statusData)
+                    Task { @MainActor in self.log("FTMS: SetTargetedCadence \(targetRpm) RPM") }
+                } else {
+                    indicate(opcode, InvalidParameter)
+                }
+            } else {
+                indicate(opcode, ControlNotPermitted)
+            }
+
         default:
-            indicate(opcode, OperationFailed)
+            // Unknown opcode
+            indicate(opcode, OpCodeNotSupported)
+            Task { @MainActor in self.log("FTMS: Unknown opcode \(String(format: "0x%02X", opcode)) -> not supported") }
         }
     }
 
