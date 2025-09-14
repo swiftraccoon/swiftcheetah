@@ -108,7 +108,7 @@ public final class CadenceManager: @unchecked Sendable {
         // Faster response when standing (0.4s) vs sitting (0.8s)
         let tau = standing ? 0.4 : 0.8
         let alpha = 1 - exp(-dt / tau)
-        cadence = cadence + alpha * (cGear - cadence)
+        cadence += alpha * (cGear - cadence)
 
         // 5) Natural jitter (bounded OU-like)
         updateNoise(dt: dt)

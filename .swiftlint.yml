@@ -1,19 +1,12 @@
 disabled_rules:
-  - trailing_whitespace
   - nesting
   - large_tuple
   - identifier_name
   - sorted_imports
-  - trailing_newline
-  - statement_position
-  - colon
   - cyclomatic_complexity
-  - shorthand_operator
   - line_length
   - function_body_length
   - file_length
-  - switch_case_alignment
-  - attributes
 
 opt_in_rules:
   - empty_count
@@ -28,5 +21,9 @@ included:
 
 type_name:
   max_length: 50
+
+type_body_length:
+  warning: 280
+  error: 400
 
 reporter: xcode

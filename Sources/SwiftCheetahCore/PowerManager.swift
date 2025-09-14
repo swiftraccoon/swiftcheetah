@@ -56,12 +56,14 @@ public final class PowerManager: @unchecked Sendable {
         displayBuffer.append((now, controlPower))
         let cutoff = now - Double(opt.displayWindowMs) / 1000.0
         displayBuffer.removeAll { $0.t < cutoff }
-        if displayBuffer.isEmpty { smoothedPower = controlPower }
-        else { smoothedPower = displayBuffer.reduce(0) { $0 + $1.v } / Double(displayBuffer.count) }
+        if displayBuffer.isEmpty {
+            smoothedPower = controlPower
+        } else {
+            smoothedPower = displayBuffer.reduce(0) { $0 + $1.v } / Double(displayBuffer.count)
+        }
 
         return max(0, Int(controlPower.rounded()))
     }
 
     public func getSmoothedPower() -> Int { Int(smoothedPower.rounded()) }
 }
-

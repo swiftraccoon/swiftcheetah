@@ -43,7 +43,7 @@ final class IntegrationCentralTests: XCTestCase {
                     manager.scanForPeripherals(withServices: [CBUUID(string: "1826")], options: nil)
                 }
             }
-            func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+            func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
                 let advName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? p.name ?? ""
                 if advName == name {
                     didDiscover.fulfill()
@@ -130,7 +130,7 @@ final class IntegrationCentralTests: XCTestCase {
                 }
             }
 
-            func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String : Any], rssi: NSNumber) {
+            func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String: Any], rssi: NSNumber) {
                 let advName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? p.name ?? ""
                 if advName == name {
                     peripheral = p
@@ -231,7 +231,7 @@ final class IntegrationCentralTests: XCTestCase {
                 }
             }
 
-            func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String : Any], rssi: NSNumber) {
+            func centralManager(_ central: CBCentralManager, didDiscover p: CBPeripheral, advertisementData: [String: Any], rssi: NSNumber) {
                 let advName = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? p.name ?? ""
                 if advName == name {
                     peripheral = p
@@ -269,4 +269,3 @@ final class IntegrationCentralTests: XCTestCase {
         periph.stopBroadcast()
     }
 }
-

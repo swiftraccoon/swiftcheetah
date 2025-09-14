@@ -326,4 +326,3 @@ final class PhysicsCalculatorTests: XCTestCase {
         }
     }
 }
-

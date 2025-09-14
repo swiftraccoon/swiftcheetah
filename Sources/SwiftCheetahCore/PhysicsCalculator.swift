@@ -122,7 +122,7 @@ public struct PhysicsCalculator {
 
             // Update speed estimate
             let delta = error / dP_dv
-            v = v + delta
+            v += delta
 
             // Keep speed positive
             v = max(0.1, v)
@@ -182,7 +182,7 @@ public struct PhysicsCalculator {
 
             // Damped adjustment to prevent oscillation
             let adjustment = error / (params.massKg * v + params.cda * params.airDensity * v * v)
-            v = v + adjustment * 0.5
+            v += adjustment * 0.5
 
             if abs(error) < 5 { break }
         }

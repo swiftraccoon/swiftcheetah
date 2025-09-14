@@ -80,7 +80,7 @@ nonisolated(unsafe) extension BLEManager: CBCentralManagerDelegate {
     }
 
     /// Track discovered peripherals and expose simplified device descriptors.
-    public func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
+    public func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
         discovered[peripheral.identifier] = peripheral
         let name = peripheral.name ?? (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? "Unknown"
         let device = BLEDevice(name: name, peripheralIdentifier: peripheral.identifier)

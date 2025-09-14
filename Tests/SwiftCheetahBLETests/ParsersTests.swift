@@ -30,4 +30,3 @@ final class ParsersTests: XCTestCase {
         if let c = m?.cadenceRpm { XCTAssertEqual(c, 90.0, accuracy: 0.1) } else { XCTFail("no cadence") }
     }
 }
-

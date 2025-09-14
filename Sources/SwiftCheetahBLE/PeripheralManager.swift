@@ -377,7 +377,7 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
             switch s {
             case .poweredOn:
                 self.lastError = nil
-                case .poweredOff: self.stopBroadcast()
+            case .poweredOff: self.stopBroadcast()
             case .unauthorized, .unsupported, .resetting: self.lastError = "Bluetooth unavailable: \(s.rawValue)"
             case .unknown: break
             @unknown default: break
@@ -388,8 +388,14 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
     public func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
         let err = error?.localizedDescription
         Task { @MainActor in
-            if let err = err { self.state = .failed; self.lastError = err; self.isAdvertising = false }
-            else { self.state = .advertising; self.isAdvertising = true }
+            if let err = err {
+                self.state = .failed
+                self.lastError = err
+                self.isAdvertising = false
+            } else {
+                self.state = .advertising
+                self.isAdvertising = true
+            }
         }
     }
 

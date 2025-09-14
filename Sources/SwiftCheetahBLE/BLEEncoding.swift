@@ -61,4 +61,3 @@ enum BLEEncoding {
         return d
     }
 }
-
