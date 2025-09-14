@@ -69,7 +69,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var rscTimer: Timer?
     private var lastPowerUpdate: TimeInterval = Date().timeIntervalSince1970
     private var powerMgr = PowerManager()
-    private var varMgr = PowerVarianceManager()
+    private var varMgr = OrnsteinUhlenbeckVariance()
     private var cadenceMgr = CadenceManager()
     private var physicsParams = PhysicsCalculator.Parameters()
 
@@ -120,7 +120,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         // Update stats for UI even when not broadcasting
         if !isAdvertising {
             let dt = 1.0
-            let variation = varMgr.update(randomness: randomness, targetPower: watts, dt: dt)
+            let variation = varMgr.update(randomness: Double(randomness), targetPower: Double(watts), dt: dt)
             let realisticWatts = powerMgr.update(targetPower: watts, cadenceRPM: cadenceRpm, variation: variation, isResting: false)
             let v = PhysicsCalculator.calculateSpeed(powerWatts: Double(realisticWatts), gradePercent: gradePercent, params: physicsParams)
 
@@ -260,7 +260,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         let dt = max(0.001, now - lastPowerUpdate)
         lastPowerUpdate = now
         // Compute speed from power + grade; then AUTO cadence via CadenceManager
-        let variation = varMgr.update(randomness: randomness, targetPower: watts, dt: dt)
+        let variation = varMgr.update(randomness: Double(randomness), targetPower: Double(watts), dt: dt)
         let realisticWatts = powerMgr.update(targetPower: watts, cadenceRPM: cadenceRpm, variation: variation, isResting: false)
         let v = PhysicsCalculator.calculateSpeed(powerWatts: Double(realisticWatts), gradePercent: gradePercent, params: physicsParams)
         speedMps = v
@@ -276,7 +276,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         let now = Date().timeIntervalSince1970
         let dt = max(0.001, now - lastPowerUpdate)
         lastPowerUpdate = now
-        let variation = varMgr.update(randomness: randomness, targetPower: watts, dt: dt)
+        let variation = varMgr.update(randomness: Double(randomness), targetPower: Double(watts), dt: dt)
         let realisticWatts = powerMgr.update(targetPower: watts, cadenceRPM: cadenceRpm, variation: variation, isResting: false)
         let v = PhysicsCalculator.calculateSpeed(powerWatts: Double(realisticWatts), gradePercent: gradePercent, params: physicsParams)
         speedMps = v

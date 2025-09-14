@@ -228,7 +228,6 @@ public final class CadenceManager: @unchecked Sendable {
         fatigue = min(1.0, max(0.0, fatigue))
     }
 
-
     /// Check for standing/sitting transitions based on power and grade.
     /// Uses dt-based Poisson process for realistic timing.
     private func checkStanding(power: Double, grade: Double, dt: Double, now: TimeInterval) {

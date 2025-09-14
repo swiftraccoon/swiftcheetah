@@ -168,7 +168,6 @@ public final class OrnsteinUhlenbeckVariance: @unchecked Sendable {
 
     // MARK: - Private Methods
 
-
     /// Sample from truncated normal distribution
     /// - Parameters:
     ///   - mean: Mean of the distribution
