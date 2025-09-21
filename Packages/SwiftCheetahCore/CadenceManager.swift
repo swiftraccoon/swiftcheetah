@@ -93,16 +93,21 @@ public final class CadenceManager: @unchecked Sendable {
         // 3) Cadence from gear and speed
         var cGear = cadenceFromGear(speedMps: speedMps, front: currentGear.front, rear: currentGear.rear)
 
-        // High-speed handling (spin-out/coast) consistent with observed cycling behavior
-        let speedKmh = speedMps * 3.6
-        if speedKmh > 55 {
-            if power < 150 { cGear = 0 } else { cGear = min(110, cGear) }
-        } else if speedKmh > 45 {
-            if grade < -5 { cGear = min(100, cGear * 0.6) } else { cGear = min(120, cGear) }
-        } else if speedKmh > 35 && grade < -8 {
-            cGear = min(90, cGear * 0.7)
+        // When mechanical cadence exceeds human capability, rider must either:
+        // 1. Coast (power = 0, cadence = 0)
+        // 2. Be "spun out" (unable to keep up with pedals)
+        // The cadence itself is still mechanically determined by gear ratio
+
+        // If mechanical cadence exceeds sustainable limit, rider likely coasts
+        if cGear > ValidationLimits.maxCadence && power < 100 {
+            // Low power at high mechanical cadence suggests coasting
+            cGear = 0
         }
-        if speedMps < 1.5 { cGear = min(50, cGear) }
+
+        // At very low speeds, cadence is limited by balance
+        if speedMps < 1.5 {
+            cGear = min(50, cGear)
+        }
 
         // 4) First-order response to gear cadence
         // Faster response when standing (0.4s) vs sitting (0.8s)
@@ -117,7 +122,7 @@ public final class CadenceManager: @unchecked Sendable {
         // 6) Fatigue slow update
         updateFatigue(power: power, dt: dt)
 
-        cadence = max(0, min(180, cadence))
+        cadence = max(0, min(ValidationLimits.maxCadence, cadence))
         if !cadence.isFinite { cadence = 85 }
         return cadence
     }
@@ -139,11 +144,11 @@ public final class CadenceManager: @unchecked Sendable {
     }
 
     /// Gear physics: RPM = 60 * speed / circumference * (rear/front).
-    /// Clamped to [0, 180]. Returns 0 below ~0.5 m/s.
+    /// Clamped to [0, maxSprintCadence]. Returns 0 below ~0.5 m/s.
     private func cadenceFromGear(speedMps: Double, front: Int, rear: Int) -> Double {
         guard speedMps > 0.5, prefs.wheelCircum > 0, front > 0, rear > 0 else { return 0 }
         let raw = (60.0 * speedMps / prefs.wheelCircum) * (Double(rear) / Double(front))
-        return max(0, min(180, raw))
+        return max(0, min(ValidationLimits.maxSprintCadence, raw))
     }
 
     /// Exhaustive search of gearset to find the gear whose cadence matches target best.
@@ -279,7 +284,7 @@ public final class CadenceManager: @unchecked Sendable {
                 standing = false
                 lastStandingChange = now
                 // Sitting causes small cadence increase as rhythm resumes
-                cadence = min(180, cadence + 3)
+                cadence = min(ValidationLimits.maxCadence, cadence + AlgorithmParameters.Standing.cadenceBoost)
             }
         }
     }

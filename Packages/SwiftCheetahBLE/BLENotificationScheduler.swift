@@ -34,9 +34,16 @@ public final class BLENotificationScheduler: @unchecked Sendable {
     /// Start all notification timers
     public func startNotifications() {
         guard !isActive else { return }
-        isActive = true
 
-        stopNotifications()  // Clear any existing timers
+        // Clear any existing timers without changing isActive state
+        ftmsTimer?.invalidate()
+        cpsTimer?.invalidate()
+        rscTimer?.invalidate()
+        ftmsTimer = nil
+        cpsTimer = nil
+        rscTimer = nil
+
+        isActive = true
 
         // FTMS at 4 Hz
         ftmsTimer = Timer.scheduledTimer(withTimeInterval: NotificationConfig.ftmsInterval, repeats: true) { [weak self] _ in

@@ -81,8 +81,9 @@ final class ValueValidatorTests: XCTestCase {
     }
 
     func testVeryHighCadence() {
+        // 150 RPM exceeds maxSprintCadence (125), so it's critical
         let result = validator.validateCadence(150)
-        XCTAssertEqual(result.level, .warning)
+        XCTAssertEqual(result.level, .critical)
     }
 
     func testCadenceExceedsHumanLimits() {
@@ -103,8 +104,9 @@ final class ValueValidatorTests: XCTestCase {
     }
 
     func testExtremeGradient() {
+        // 35% exceeds maxGrade (30%), so it's critical
         let result = validator.validateGradient(35)
-        XCTAssertEqual(result.level, .warning)
+        XCTAssertEqual(result.level, .critical)
     }
 
     func testImpossibleGradient() {
@@ -223,14 +225,14 @@ final class ValueValidatorTests: XCTestCase {
 
     func testBoundaryValues() {
         // Test right at warning boundaries
-        // Use power=200 to avoid the "high cadence for low power" warning
-        XCTAssertEqual(validator.validateCadence(141, power: 200).level, .warning)  // >140 is warning
-        XCTAssertEqual(validator.validateCadence(140, power: 200).level, .valid)    // 140 is still valid
+        // maxCadence=120 (warning), maxSprintCadence=125 (critical)
+        XCTAssertEqual(validator.validateCadence(122, power: 200).level, .warning)  // >120 is warning
+        XCTAssertEqual(validator.validateCadence(119, power: 200).level, .warning)    // 119 > 110 triggers high cadence warning
 
-        // For gradient, abs(grade) > 30 is warning, grade > 20 is warning
-        XCTAssertEqual(validator.validateGradient(31).level, .warning)  // abs(31) > 30
-        XCTAssertEqual(validator.validateGradient(21).level, .warning)  // 21 > 20, so it's "very steep climb"
-        XCTAssertEqual(validator.validateGradient(20).level, .valid)    // 20 is exactly the boundary
+        // For gradient, abs(grade) > 30 is critical, abs(grade) > 20 is warning
+        XCTAssertEqual(validator.validateGradient(31).level, .critical)  // abs(31) > 30 is critical
+        XCTAssertEqual(validator.validateGradient(21).level, .warning)  // 21 > 20 (0.67*30), so it's warning
+        XCTAssertEqual(validator.validateGradient(20).level, .valid)    // 20 is exactly at 0.67*30
         XCTAssertEqual(validator.validateGradient(19).level, .valid)    // 19 < 20, valid
     }
 }

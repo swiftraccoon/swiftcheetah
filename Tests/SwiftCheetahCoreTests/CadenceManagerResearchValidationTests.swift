@@ -309,14 +309,17 @@ final class CadenceManagerResearchValidationTests: XCTestCase {
     // MARK: - High-Speed Physics Tests
 
     func testHighSpeedCoasting() {
-        // Test realistic high-speed coasting behavior
+        // Test realistic high-speed coasting behavior based on mechanical coupling
         let cm = CadenceManager()
 
-        // Test different speed thresholds mentioned in CadenceManager
+        // At very high speeds where mechanical cadence exceeds human limits,
+        // riders must coast. Test speeds that produce different mechanical cadences:
+        // Using 50/11 gear (tallest): cadence = speed_mps * 60 / 2.112 * 11/50
         let speedTests: [(speedKmh: Double, power: Double, expectedBehavior: String)] = [
-            (60, 100, "should approach coasting"),        // >55 km/h, low power
-            (50, 50, "should reduce cadence significantly"), // >45 km/h, very low power
-            (40, 30, "should allow normal cadence")       // <45 km/h
+            (80, 50, "mechanical cadence >120, should coast"),    // ~139 RPM in 50/11
+            (70, 100, "mechanical cadence >120, should coast"),   // ~122 RPM in 50/11
+            (60, 100, "mechanical cadence ~104, can maintain"),   // ~104 RPM in 50/11
+            (40, 30, "mechanical cadence ~70, normal pedaling")   // ~70 RPM in 50/11
         ]
 
         for test in speedTests {
@@ -330,13 +333,16 @@ final class CadenceManagerResearchValidationTests: XCTestCase {
             }
 
             let finalCadence = cm.getState().cadence
+            let mechanicalCadence = (speedMps * 60 / 2.112) * (11.0/50.0)  // In tallest gear
 
-            if test.speedKmh >= 55 && test.power < 150 {
+            if mechanicalCadence > ValidationLimits.maxCadence && test.power < 100 {
+                // Should coast when mechanical cadence exceeds sustainable limit
                 XCTAssertLessThan(finalCadence, 30,
-                    "At \(test.speedKmh) km/h with \(test.power)W, should coast (cadence < 30)")
-            } else if test.speedKmh >= 45 {
-                XCTAssertLessThan(finalCadence, 125,
-                    "At \(test.speedKmh) km/h, cadence should be manageable (<125 rpm)")
+                    "At \(test.speedKmh) km/h (\(Int(mechanicalCadence)) RPM mechanical) with \(test.power)W, should coast")
+            } else {
+                // Should maintain cadence when within human limits
+                XCTAssertGreaterThan(finalCadence, 30,
+                    "At \(test.speedKmh) km/h (\(Int(mechanicalCadence)) RPM mechanical), should maintain pedaling")
             }
         }
     }

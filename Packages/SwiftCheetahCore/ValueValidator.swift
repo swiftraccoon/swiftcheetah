@@ -58,6 +58,16 @@ public final class ValueValidator {
             case .professional: return 2000
             }
         }
+
+        var ftp: Double {
+            switch self {
+            case .recreational: return 175
+            case .enthusiast: return 225
+            case .competitive: return 300
+            case .elite: return 400
+            case .professional: return 475
+            }
+        }
     }
 
     private let category: RiderCategory
@@ -73,9 +83,9 @@ public final class ValueValidator {
             return ValidationResult(level: .error, message: "Power cannot be negative", parameter: "power")
         }
 
-        // Check against absolute maximum (world record ~2600W sprint)
-        if power > 2600 {
-            return ValidationResult(level: .critical, message: "Power exceeds world record levels", parameter: "power")
+        // Check against absolute maximum from ValidationLimits
+        if power > ValidationLimits.maxPower {
+            return ValidationResult(level: .critical, message: "Power exceeds maximum (\(Int(ValidationLimits.maxPower))W)", parameter: "power")
         }
 
         // Check against category limits
@@ -105,9 +115,10 @@ public final class ValueValidator {
             return ValidationResult(level: .error, message: "Speed cannot be negative", parameter: "speed")
         }
 
-        // Check absolute maximum (world record ~133 km/h)
-        if speedKmh > 140 {
-            return ValidationResult(level: .critical, message: "Speed exceeds world record", parameter: "speed")
+        // Check absolute maximum using ValidationLimits
+        let maxSpeedKmh = ValidationLimits.maxRealisticSpeed * PhysicsConstants.Conversion.msToKmh
+        if speedKmh > maxSpeedKmh {
+            return ValidationResult(level: .critical, message: "Speed exceeds maximum (\(Int(maxSpeedKmh)) km/h)", parameter: "speed")
         }
 
         // Context-aware checks
@@ -153,26 +164,40 @@ public final class ValueValidator {
             return ValidationResult(level: .error, message: "Cadence cannot be negative", parameter: "cadence")
         }
 
-        // Physiological limits
-        if cadence > 200 {
-            return ValidationResult(level: .critical, message: "Cadence exceeds human limits", parameter: "cadence")
+        // Physiological limits based on research
+        if cadence > ValidationLimits.maxSprintCadence {
+            return ValidationResult(level: .critical, message: "Cadence exceeds human limits (>125 RPM)", parameter: "cadence")
         }
 
-        if cadence > 140 {
-            return ValidationResult(level: .warning, message: "Very high cadence", parameter: "cadence")
+        if cadence > ValidationLimits.maxCadence {
+            return ValidationResult(level: .warning, message: "Very high cadence (>120 RPM)", parameter: "cadence")
         }
 
-        if cadence < 30 && cadence > 0 {
+        // High cadence threshold - 110 RPM is approaching the sustainable limit
+        let highCadenceThreshold = 110.0  // Research-based sustainable high cadence
+        if cadence > highCadenceThreshold {
+            return ValidationResult(level: .warning, message: "High cadence (>\(Int(highCadenceThreshold)) RPM)", parameter: "cadence")
+        }
+
+        // Very low cadence - below 30 RPM is difficult to maintain balance
+        let veryLowCadenceThreshold = 30.0  // Below this, balance is difficult
+        if cadence < veryLowCadenceThreshold && cadence > 0 {
             return ValidationResult(level: .warning, message: "Very low cadence", parameter: "cadence")
         }
 
-        // Context check with power
-        if power > 300 && cadence < 60 {
+        // Context check with power - use FTP-relative thresholds
+        // High power typically requires moderate cadence (>60 RPM)
+        let highPowerThreshold = category.ftp * 1.2  // 120% FTP is high intensity
+        let lowCadenceForPowerThreshold = 60.0  // Minimum efficient cadence for power
+        if power > highPowerThreshold && cadence < lowCadenceForPowerThreshold {
             return ValidationResult(level: .warning,
                 message: "Low cadence for high power", parameter: "cadence")
         }
 
-        if power < 100 && cadence > 110 {
+        // Low power (<40% FTP) with high cadence (>100 RPM) is inefficient
+        let lowPowerThreshold = category.ftp * 0.4  // 40% FTP is recovery pace
+        let highCadenceForLowPowerThreshold = 100.0  // Inefficient spinning threshold
+        if power < lowPowerThreshold && cadence > highCadenceForLowPowerThreshold {
             return ValidationResult(level: .warning,
                 message: "High cadence for low power", parameter: "cadence")
         }
@@ -182,20 +207,20 @@ public final class ValueValidator {
 
     /// Validate gradient
     public func validateGradient(_ grade: Double) -> ValidationResult {
-        // Check absolute limits (steepest roads ~35%)
-        if abs(grade) > 40 {
-            return ValidationResult(level: .critical, message: "Gradient exceeds road limits", parameter: "gradient")
+        // Check absolute limits using ValidationLimits
+        if abs(grade) > ValidationLimits.maxGrade {
+            return ValidationResult(level: .critical, message: "Gradient exceeds limits (±\(Int(ValidationLimits.maxGrade))%)", parameter: "gradient")
         }
 
-        if abs(grade) > 30 {
+        if abs(grade) > ValidationLimits.maxGrade * 0.67 { // ~20%
             return ValidationResult(level: .warning, message: "Extreme gradient", parameter: "gradient")
         }
 
-        if grade > 20 {
+        if grade > ValidationLimits.maxGrade * 0.67 {
             return ValidationResult(level: .warning, message: "Very steep climb", parameter: "gradient")
         }
 
-        if grade < -20 {
+        if grade < -ValidationLimits.maxGrade * 0.67 {
             return ValidationResult(level: .warning, message: "Very steep descent", parameter: "gradient")
         }
 
@@ -301,13 +326,13 @@ public final class ValueValidator {
     public func getSafetyLimits(for parameter: String) -> (min: Double, max: Double, recommended: ClosedRange<Double>)? {
         switch parameter.lowercased() {
         case "power":
-            return (min: 0, max: 2000, recommended: 50...400)
+            return (min: ValidationLimits.minPower, max: ValidationLimits.maxPower, recommended: 50...400)
         case "speed":
             return (min: 0, max: 30, recommended: 5...15)  // m/s
         case "cadence":
-            return (min: 0, max: 180, recommended: 70...100)
+            return (min: ValidationLimits.minCadence, max: ValidationLimits.maxCadence, recommended: 70...95)
         case "gradient", "grade":
-            return (min: -30, max: 30, recommended: -10...10)
+            return (min: ValidationLimits.minGrade, max: ValidationLimits.maxGrade, recommended: -10...10)
         case "heartrate", "hr":
             return (min: 40, max: 200, recommended: 100...170)
         case "randomness":
