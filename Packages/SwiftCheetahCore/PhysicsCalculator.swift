@@ -52,11 +52,13 @@ public struct PhysicsCalculator {
     /// - Parameters:
     ///   - powerWatts: Power output in watts
     ///   - gradePercent: Grade in percent (positive = uphill, negative = downhill)
+    ///   - windSpeedMps: Headwind in m/s (positive = headwind, negative = tailwind)
     ///   - params: Physical parameters
     /// - Returns: Speed in meters per second
     public static func calculateSpeed(
         powerWatts: Double,
         gradePercent: Double,
+        windSpeedMps: Double = 0,
         params: Parameters = Parameters()
     ) -> Double {
         // Validate and clamp inputs
@@ -74,6 +76,7 @@ public struct PhysicsCalculator {
             return calculateDescentSpeed(
                 effectivePower: effectivePower,
                 gradeDecimal: gradeDecimal,
+                windSpeedMps: windSpeedMps,
                 params: params
             )
         }
@@ -82,6 +85,7 @@ public struct PhysicsCalculator {
         return newtonRaphsonSolver(
             effectivePower: effectivePower,
             gradeDecimal: gradeDecimal,
+            windSpeedMps: windSpeedMps,
             params: params
         )
     }
@@ -90,6 +94,7 @@ public struct PhysicsCalculator {
     private static func newtonRaphsonSolver(
         effectivePower: Double,
         gradeDecimal: Double,
+        windSpeedMps: Double = 0,
         params: Parameters
     ) -> Double {
         // Better initial guess based on power (assuming flat ground)
@@ -101,10 +106,11 @@ public struct PhysicsCalculator {
             // Use proper angle for grade (not small angle approximation)
             let theta = atan(gradeDecimal)
 
-            // Forces at current speed
+            // Forces at current speed (wind adds to effective airspeed)
             let F_gravity = params.massKg * gravity * sin(theta)  // Uphill component
             let F_rolling = params.massKg * gravity * params.crr * cos(theta)
-            let F_air = 0.5 * params.cda * params.airDensity * v * v
+            let vAir = v + windSpeedMps
+            let F_air = 0.5 * params.cda * params.airDensity * vAir * abs(vAir)
 
             // Total resistive force
             let F_total = F_gravity + F_rolling + F_air
@@ -116,7 +122,7 @@ public struct PhysicsCalculator {
             let error = effectivePower - P_required
 
             // Jacobian (derivative of power with respect to speed)
-            let dP_dv = F_gravity + F_rolling + 1.5 * params.cda * params.airDensity * v * v
+            let dP_dv = F_gravity + F_rolling + 1.5 * params.cda * params.airDensity * vAir * vAir
 
             // Avoid division by zero
             if abs(dP_dv) < AlgorithmParameters.NewtonRaphson.tolerance { break }
@@ -140,6 +146,7 @@ public struct PhysicsCalculator {
     private static func calculateDescentSpeed(
         effectivePower: Double,
         gradeDecimal: Double,
+        windSpeedMps: Double = 0,
         params: Parameters
     ) -> Double {
         // Use proper trigonometry for forces on descent
@@ -159,6 +166,7 @@ public struct PhysicsCalculator {
             return newtonRaphsonSolver(
                 effectivePower: effectivePower,
                 gradeDecimal: gradeDecimal,
+                windSpeedMps: windSpeedMps,
                 params: params
             )
         }
@@ -175,7 +183,8 @@ public struct PhysicsCalculator {
         var v = v_terminal
 
         for iteration in 0..<10 {
-            let F_air = 0.5 * params.cda * params.airDensity * v * v
+            let vAir = v + windSpeedMps
+            let F_air = 0.5 * params.cda * params.airDensity * vAir * abs(vAir)
             let F_required = F_air - F_gravity_parallel + F_rolling
             let P_required = F_required * v
 

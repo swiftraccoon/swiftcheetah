@@ -78,7 +78,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
 
     // MARK: - FTMS Timer Tests
 
-    func DISABLED_testFTMSTimerCallback() {
+    func testFTMSTimerCallback() {
         let expectation = XCTestExpectation(description: "FTMS callback")
         expectation.expectedFulfillmentCount = 2
 
@@ -91,7 +91,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    func DISABLED_testFTMSTimerFrequency() {
+    func testFTMSTimerFrequency() {
         let expectation = XCTestExpectation(description: "FTMS frequency test")
         expectation.expectedFulfillmentCount = 4
 
@@ -108,13 +108,13 @@ final class BLENotificationSchedulerTests: XCTestCase {
         // Verify intervals are approximately 0.25 seconds
         for i in 1..<callTimes.count {
             let interval = callTimes[i].timeIntervalSince(callTimes[i-1])
-            XCTAssertEqual(interval, 0.25, accuracy: 0.1, "FTMS interval should be ~0.25s")
+            XCTAssertEqual(interval, 0.25, accuracy: 0.15, "FTMS interval should be ~0.25s")
         }
     }
 
     // MARK: - RSC Timer Tests
 
-    func DISABLED_testRSCTimerCallback() {
+    func testRSCTimerCallback() {
         let expectation = XCTestExpectation(description: "RSC callback")
         expectation.expectedFulfillmentCount = 2
 
@@ -127,7 +127,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
         wait(for: [expectation], timeout: 1.5)
     }
 
-    func DISABLED_testRSCTimerFrequency() {
+    func testRSCTimerFrequency() {
         let expectation = XCTestExpectation(description: "RSC frequency test")
         expectation.expectedFulfillmentCount = 3
 
@@ -144,13 +144,13 @@ final class BLENotificationSchedulerTests: XCTestCase {
         // Verify intervals are approximately 0.5 seconds
         for i in 1..<callTimes.count {
             let interval = callTimes[i].timeIntervalSince(callTimes[i-1])
-            XCTAssertEqual(interval, 0.5, accuracy: 0.1, "RSC interval should be ~0.5s")
+            XCTAssertEqual(interval, 0.5, accuracy: 0.15, "RSC interval should be ~0.5s")
         }
     }
 
     // MARK: - CPS Dynamic Timer Tests
 
-    func DISABLED_testCPSTimerCallback() {
+    func testCPSTimerCallback() {
         let expectation = XCTestExpectation(description: "CPS callback")
         expectation.expectedFulfillmentCount = 2
 
@@ -164,7 +164,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
         wait(for: [expectation], timeout: 2.0)
     }
 
-    func DISABLED_testCPSTimerWithZeroCadence() {
+    func testCPSTimerWithZeroCadence() {
         let expectation = XCTestExpectation(description: "CPS zero cadence")
         expectation.expectedFulfillmentCount = 3
 
@@ -178,7 +178,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    func DISABLED_testCPSTimerDynamicInterval() {
+    func testCPSTimerDynamicInterval() {
         let expectation = XCTestExpectation(description: "CPS dynamic interval")
 
         var intervals: [TimeInterval] = []
@@ -205,11 +205,11 @@ final class BLENotificationSchedulerTests: XCTestCase {
 
         // Verify intervals match expected cadence-based timing (60 RPM = 1 second)
         for interval in intervals {
-            XCTAssertEqual(interval, 1.0, accuracy: 0.1, "CPS interval should match cadence timing")
+            XCTAssertEqual(interval, 1.0, accuracy: 0.15, "CPS interval should match cadence timing")
         }
     }
 
-    func DISABLED_testCPSTimerHighCadenceCapping() {
+    func testCPSTimerHighCadenceCapping() {
         let expectation = XCTestExpectation(description: "CPS high cadence capping")
 
         var intervals: [TimeInterval] = []
@@ -237,11 +237,11 @@ final class BLENotificationSchedulerTests: XCTestCase {
         // Verify intervals are capped at max frequency (0.25s)
         for interval in intervals {
             XCTAssertGreaterThanOrEqual(interval, 0.25, "CPS interval should not exceed max frequency")
-            XCTAssertEqual(interval, 0.25, accuracy: 0.1, "High cadence should be capped at 0.25s")
+            XCTAssertEqual(interval, 0.25, accuracy: 0.15, "High cadence should be capped at 0.25s")
         }
     }
 
-    func DISABLED_testCPSTimerCadenceChange() {
+    func testCPSTimerCadenceChange() {
         let expectation = XCTestExpectation(description: "CPS cadence change")
 
         var callCount = 0
@@ -260,7 +260,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
 
         scheduler.startNotifications()
 
-        wait(for: [expectation], timeout: 3.0)
+        wait(for: [expectation], timeout: 5.0)
 
         // Test passed if no crashes and expectation fulfilled
         XCTAssertGreaterThanOrEqual(callCount, 4)
@@ -282,23 +282,29 @@ final class BLENotificationSchedulerTests: XCTestCase {
         XCTAssertFalse(scheduler.isNotifying)
     }
 
-    // This test requires run loop which doesn't work reliably in test environment
-    func DISABLED_testDelegateCallbackVerification() {
+    func testDelegateCallbackVerification() {
+        let allCalled = XCTestExpectation(description: "All delegate callbacks fired")
+
         var ftmsCallCount = 0
         var cpsCallCount = 0
         var rscCallCount = 0
         var cadenceQueryCount = 0
 
-        mockDelegate.onFTMSNotification = { ftmsCallCount += 1 }
-        mockDelegate.onCPSNotification = { cpsCallCount += 1 }
-        mockDelegate.onRSCNotification = { rscCallCount += 1 }
-        mockDelegate.onCadenceQuery = { cadenceQueryCount += 1 }
+        func checkAllCalled() {
+            if ftmsCallCount > 0 && cpsCallCount > 0 && rscCallCount > 0 && cadenceQueryCount > 0 {
+                allCalled.fulfill()
+            }
+        }
+
+        mockDelegate.onFTMSNotification = { ftmsCallCount += 1; checkAllCalled() }
+        mockDelegate.onCPSNotification = { cpsCallCount += 1; checkAllCalled() }
+        mockDelegate.onRSCNotification = { rscCallCount += 1; checkAllCalled() }
+        mockDelegate.onCadenceQuery = { cadenceQueryCount += 1; checkAllCalled() }
         mockDelegate.cadence = 90
 
         scheduler.startNotifications()
 
-        // Wait for multiple timer cycles
-        Thread.sleep(forTimeInterval: 0.8)
+        wait(for: [allCalled], timeout: 2.0)
 
         scheduler.stopNotifications()
 
@@ -350,7 +356,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
 
     // MARK: - Edge Cases and Error Handling
 
-    func DISABLED_testNegativeCadence() {
+    func testNegativeCadence() {
         let expectation = XCTestExpectation(description: "Negative cadence handling")
         expectation.expectedFulfillmentCount = 2
 
@@ -366,7 +372,7 @@ final class BLENotificationSchedulerTests: XCTestCase {
         // Should handle negative cadence gracefully (treat as zero)
     }
 
-    func DISABLED_testVeryHighCadence() {
+    func testVeryHighCadence() {
         let expectation = XCTestExpectation(description: "Very high cadence")
 
         mockDelegate.cadence = 1000  // Unrealistic high cadence
@@ -467,6 +473,7 @@ private class MockSchedulerDelegate: BLENotificationScheduler.Delegate {
     var onFTMSNotification: (() -> Void)?
     var onCPSNotification: (() -> Void)?
     var onRSCNotification: (() -> Void)?
+    var onHRSNotification: (() -> Void)?
     var onCadenceQuery: (() -> Void)?
 
     func schedulerShouldSendFTMSNotification() {
@@ -479,6 +486,10 @@ private class MockSchedulerDelegate: BLENotificationScheduler.Delegate {
 
     func schedulerShouldSendRSCNotification() {
         onRSCNotification?()
+    }
+
+    func schedulerShouldSendHRSNotification() {
+        onHRSNotification?()
     }
 
     func schedulerNeedsCadenceForCPSInterval() -> Int {

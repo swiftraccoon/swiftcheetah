@@ -62,6 +62,7 @@ public final class CadenceManager: @unchecked Sendable {
     private var lastTarget: Double = 85
     private var standing: Bool = false
     private var lastStandingChange: TimeInterval = 0
+    private var simulationTime: TimeInterval = 0
 
     public init(gearset: Gearset = Gearset(), prefs: RiderPrefs = RiderPrefs()) {
         self.gearset = gearset
@@ -77,8 +78,9 @@ public final class CadenceManager: @unchecked Sendable {
     ///   - dt: time step in seconds (0.01–2s recommended)
     /// - Returns: current cadence (RPM)
     public func update(power: Double, grade: Double, speedMps: Double, dt rawDt: Double) -> Double {
-        let now = Date().timeIntervalSince1970
         let dt = max(0.01, min(2.0, rawDt))
+        simulationTime += dt
+        let now = simulationTime
 
         // 0) Check standing/sitting transitions (affects dynamics)
         checkStanding(power: power, grade: grade, dt: dt, now: now)
@@ -88,7 +90,7 @@ public final class CadenceManager: @unchecked Sendable {
         lastTarget = cTarget
 
         // 2) Consider shifting toward gear that meets target
-        checkGearShift(cTarget: cTarget, grade: grade, speedMps: speedMps, now: now)
+        checkGearShift(cTarget: cTarget, grade: grade, speedMps: speedMps, now: now, dt: dt)
 
         // 3) Cadence from gear and speed
         var cGear = cadenceFromGear(speedMps: speedMps, front: currentGear.front, rear: currentGear.rear)
@@ -202,7 +204,7 @@ public final class CadenceManager: @unchecked Sendable {
     }
 
     /// Probabilistic shift decision (Poisson-like), influenced by cadence error and grade.
-    private func checkGearShift(cTarget: Double, grade: Double, speedMps: Double, now: TimeInterval) {
+    private func checkGearShift(cTarget: Double, grade: Double, speedMps: Double, now: TimeInterval, dt: Double) {
         let currentGearCadence = cadenceFromGear(
             speedMps: speedMps,
             front: currentGear.front,
@@ -229,8 +231,7 @@ public final class CadenceManager: @unchecked Sendable {
         let totalRate = baseRate + errorRate + gradeRate
 
         // Convert rate to probability (Poisson process with 4Hz sampling)
-        let controlFrequency = 0.25  // 250ms between checks
-        let pShift = 1 - exp(-totalRate * controlFrequency)
+        let pShift = 1 - exp(-totalRate * dt)
         if Double.random(in: 0...1) < pShift {
             if let target = selectGear(for: cTarget, speedMps: speedMps) {
                 let next = stepOneGearToward(current: currentGear, desired: target, now: now)
@@ -300,5 +301,6 @@ public final class CadenceManager: @unchecked Sendable {
         lastTarget = 85
         standing = false
         lastStandingChange = 0
+        simulationTime = 0
     }
 }

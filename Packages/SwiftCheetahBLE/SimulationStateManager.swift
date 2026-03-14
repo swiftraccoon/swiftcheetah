@@ -66,6 +66,7 @@ public final class SimulationStateManager: ObservableObject {
         public var speedKmh: Double
         public var powerW: Int
         public var cadenceRpm: Int
+        public var heartRateBpm: Int
         public var mode: String
         public var gear: String
         public var targetCadence: Int
@@ -77,6 +78,7 @@ public final class SimulationStateManager: ObservableObject {
             speedKmh: Double = 25.0,
             powerW: Int = 250,
             cadenceRpm: Int = 90,
+            heartRateBpm: Int = 60,
             mode: String = "AUTO",
             gear: String = "2x5",
             targetCadence: Int = 90,
@@ -87,6 +89,7 @@ public final class SimulationStateManager: ObservableObject {
             self.speedKmh = speedKmh
             self.powerW = powerW
             self.cadenceRpm = cadenceRpm
+            self.heartRateBpm = heartRateBpm
             self.mode = mode
             self.gear = gear
             self.targetCadence = targetCadence
@@ -138,11 +141,12 @@ public final class SimulationStateManager: ObservableObject {
 
     // MARK: - State Updates
 
-    public func updateLiveStats(from simulationState: CyclingSimulationEngine.SimulationState) {
+    public func updateLiveStats(from simulationState: CyclingSimulationEngine.SimulationState, heartRateBpm: Int = 60) {
         liveStats = LiveStats(
             speedKmh: simulationState.speedMps * 3.6,
             powerW: simulationState.powerWatts,
             cadenceRpm: simulationState.cadenceRpm,
+            heartRateBpm: heartRateBpm,
             mode: cadenceMode == .auto ? "AUTO" : "MANUAL",
             gear: "\(simulationState.gear.front)x\(simulationState.gear.rear)",
             targetCadence: Int(simulationState.targetCadence.rounded()),

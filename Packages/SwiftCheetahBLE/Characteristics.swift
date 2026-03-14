@@ -22,4 +22,16 @@ enum GATT {
 
     // RSC Characteristics
     static var rscMeasurement: CBUUID { CBUUID(string: "2A53") }
+
+    // Heart Rate Service
+    static var heartRate: CBUUID { CBUUID(string: "180D") }
+    static var hrsMeasurement: CBUUID { CBUUID(string: "2A37") }
+    static var hrsBodySensorLocation: CBUUID { CBUUID(string: "2A38") }
+
+    // Device Information Service Characteristics
+    static var disManufacturerName: CBUUID { CBUUID(string: "2A29") }
+    static var disModelNumber: CBUUID { CBUUID(string: "2A24") }
+    static var disSerialNumber: CBUUID { CBUUID(string: "2A25") }
+    static var disFirmwareRevision: CBUUID { CBUUID(string: "2A26") }
+    static var disHardwareRevision: CBUUID { CBUUID(string: "2A27") }
 }

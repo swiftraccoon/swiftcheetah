@@ -22,9 +22,39 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         public var advertiseFTMS: Bool
         public var advertiseCPS: Bool
         public var advertiseRSC: Bool
-        public init(advertiseFTMS: Bool = true, advertiseCPS: Bool = true, advertiseRSC: Bool = true) {
+        public var advertiseHRS: Bool
+        public var advertiseDIS: Bool
+        public init(advertiseFTMS: Bool = true, advertiseCPS: Bool = true, advertiseRSC: Bool = true,
+                    advertiseHRS: Bool = false, advertiseDIS: Bool = false) {
             self.advertiseFTMS = advertiseFTMS; self.advertiseCPS = advertiseCPS; self.advertiseRSC = advertiseRSC
+            self.advertiseHRS = advertiseHRS; self.advertiseDIS = advertiseDIS
         }
+    }
+
+    /// Trainer identity preset for Device Information Service
+    public struct TrainerIdentity: Sendable {
+        public var manufacturer: String
+        public var model: String
+        public var serial: String
+        public var firmwareRevision: String
+        public var hardwareRevision: String
+
+        public init(manufacturer: String = "SwiftCheetah", model: String = "Virtual Trainer",
+                    serial: String = "SC-0001", firmwareRevision: String = "1.0.0",
+                    hardwareRevision: String = "1.0") {
+            self.manufacturer = manufacturer; self.model = model; self.serial = serial
+            self.firmwareRevision = firmwareRevision; self.hardwareRevision = hardwareRevision
+        }
+
+        public static let wahooKickr = TrainerIdentity(
+            manufacturer: "Wahoo Fitness", model: "KICKR", serial: "WF-KICKR-V6",
+            firmwareRevision: "4.2.1", hardwareRevision: "6.0")
+        public static let tacxNeo = TrainerIdentity(
+            manufacturer: "Garmin", model: "Tacx NEO 2T", serial: "TN-2T-001",
+            firmwareRevision: "0.0.39", hardwareRevision: "2.0")
+        public static let sarisH3 = TrainerIdentity(
+            manufacturer: "Saris", model: "H3", serial: "SH3-001",
+            firmwareRevision: "3.0.28", hardwareRevision: "3.0")
     }
 
     @Published public private(set) var state: State = .idle
@@ -38,6 +68,10 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     @Published public var cadenceRpm: Int = 90
     @Published public var speedMps: Double = 8.33 // internal use; not user-controlled
     @Published public var gradePercent: Double = 0.0 // set via FTMS Control Point
+    // FTMS indoor bike simulation parameters (forwarded from Zwift)
+    @Published public var simCrr: Double = 0
+    @Published public var simCw: Double = 0
+    @Published public var simWindSpeedMps: Double = 0
     @Published public var randomness: Int = 0 // 0-100
     @Published public var increment: Int = 25 // power step for steppers (was powerStep)
     public enum CadenceMode: String, Sendable { case auto, manual }
@@ -47,6 +81,11 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     @Published public var advertiseFTMS: Bool = true
     @Published public var advertiseCPS: Bool = false
     @Published public var advertiseRSC: Bool = false
+    @Published public var advertiseHRS: Bool = false
+    @Published public var advertiseDIS: Bool = false
+    @Published public var trainerIdentity: TrainerIdentity = TrainerIdentity()
+    @Published public var powerProfileMode: PowerProfileMode = .uncapped
+    @Published public var eventPreset: EventPreset = .freeRide
     // Field toggles for CPS and FTMS
     @Published public var cpsIncludePower: Bool = true
     @Published public var cpsIncludeCadence: Bool = true
@@ -58,10 +97,14 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var controlPointHandler: FTMSControlPointHandler!
     private var simulationEngine = CyclingSimulationEngine()
     private var notificationScheduler = BLENotificationScheduler()
+    private var heartRateSimulator = HeartRateSimulator()
 
     private var manager: CBPeripheralManager!
     private var options = Options()
     private var lastPowerUpdate: TimeInterval = Date().timeIntervalSince1970
+    // Unified simulation tick state (Fix 3: prevent timestamp fragmentation)
+    private var lastSimulationState: CyclingSimulationEngine.SimulationState?
+    private var simulationDirty: Bool = true
 
     // Services/Characteristics
     private var ftmsIndoorBikeData: CBMutableCharacteristic?
@@ -78,6 +121,15 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var rscFeature: CBMutableCharacteristic?
     private var rscSensorLocation: CBMutableCharacteristic?
 
+    private var hrsMeasurement: CBMutableCharacteristic?
+    private var hrsBodySensorLocation: CBMutableCharacteristic?
+
+    private var disManufacturerName: CBMutableCharacteristic?
+    private var disModelNumber: CBMutableCharacteristic?
+    private var disSerialNumber: CBMutableCharacteristic?
+    private var disFirmwareRevision: CBMutableCharacteristic?
+    private var disHardwareRevision: CBMutableCharacteristic?
+
     // Backpressure queue for indications/notifications
     private var pendingUpdates: [(CBMutableCharacteristic, Data)] = []
     // Track service registration and delay advertising until all are added
@@ -90,18 +142,30 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         public var speedKmh: Double
         public var powerW: Int
         public var cadenceRpm: Int
+        public var heartRateBpm: Int
         public var mode: String
         public var gear: String
         public var targetCadence: Int
         public var fatigue: Double
         public var noise: Double
         public var gradePercent: Double
+
+        public init(speedKmh: Double = 25.0, powerW: Int = 250, cadenceRpm: Int = 90,
+                    heartRateBpm: Int = 60, mode: String = "AUTO", gear: String = "2x5",
+                    targetCadence: Int = 90, fatigue: Double = 0, noise: Double = 0,
+                    gradePercent: Double = 0) {
+            self.speedKmh = speedKmh; self.powerW = powerW; self.cadenceRpm = cadenceRpm
+            self.heartRateBpm = heartRateBpm; self.mode = mode; self.gear = gear
+            self.targetCadence = targetCadence; self.fatigue = fatigue; self.noise = noise
+            self.gradePercent = gradePercent
+        }
     }
 
     @Published public private(set) var stats = LiveStats(
         speedKmh: 25.0,
         powerW: 250,
         cadenceRpm: 90,
+        heartRateBpm: 60,
         mode: "AUTO",
         gear: "2x5",
         targetCadence: 90,
@@ -115,6 +179,10 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     private var cadTimeTicks: UInt16 = 0 // 1/1024s units
     private var wheelCount: UInt32 = 0
     private var wheelTimeTicks: UInt16 = 0
+    // Fractional revolution accumulators (Fix 1: sub-tick accumulation)
+    private var accumulatedCrankRevs: Double = 0
+    private var accumulatedWheelRevs: Double = 0
+    private var lastHeartRateBpm: Int = 60
 
     public override init() {
         super.init()
@@ -147,9 +215,14 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
                 manualCadence: cadenceMode == .manual ? cadenceRpm : nil,
                 gradePercent: gradePercent,
                 randomness: randomness,
-                isResting: false
+                isResting: false,
+                simCrr: simCrr > 0 ? simCrr : nil,
+                simCw: simCw > 0 ? simCw : nil,
+                simWindSpeedMps: simWindSpeedMps != 0 ? simWindSpeedMps : nil,
+                powerProfileMode: powerProfileMode
             )
             let state = simulationEngine.update(with: input)
+            lastHeartRateBpm = heartRateSimulator.update(power: Double(state.powerWatts), dt: 1.0)
             updateLiveStats(simState: state)
         }
     }
@@ -166,13 +239,17 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             eventLog.append("Bluetooth not ready (state: \(manager.state.rawValue)), waiting...")
 
             // Store the broadcast request for when Bluetooth becomes available
-            let effective = options ?? Options(advertiseFTMS: advertiseFTMS, advertiseCPS: advertiseCPS, advertiseRSC: advertiseRSC)
+            let effective = options ?? Options(advertiseFTMS: advertiseFTMS, advertiseCPS: advertiseCPS,
+                                                  advertiseRSC: advertiseRSC, advertiseHRS: advertiseHRS,
+                                                  advertiseDIS: advertiseDIS)
             self.options = effective
             pendingBroadcastRequest = (localName, effective)
             return
         }
         eventLog.append("Bluetooth ready, setting up services...")
-        let effective = options ?? Options(advertiseFTMS: advertiseFTMS, advertiseCPS: advertiseCPS, advertiseRSC: advertiseRSC)
+        let effective = options ?? Options(advertiseFTMS: advertiseFTMS, advertiseCPS: advertiseCPS,
+                                              advertiseRSC: advertiseRSC, advertiseHRS: advertiseHRS,
+                                              advertiseDIS: advertiseDIS)
         self.options = effective
         state = .advertising
         isAdvertising = true  // Set immediately to update UI
@@ -181,6 +258,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         if effective.advertiseFTMS { serviceUUIDs.append(GATT.fitnessMachine) }
         if effective.advertiseCPS { serviceUUIDs.append(GATT.cyclingPower) }
         if effective.advertiseRSC { serviceUUIDs.append(GATT.runningSpeedCadence) }
+        if effective.advertiseHRS { serviceUUIDs.append(GATT.heartRate) }
         pendingAdvertData = [
             CBAdvertisementDataLocalNameKey: (localName ?? self.localName),
             CBAdvertisementDataServiceUUIDsKey: serviceUUIDs
@@ -199,7 +277,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
 
     /// Create and add services/characteristics with spec‑correct properties and descriptors.
     private func setupServices() {
-        eventLog.append("Setting up services - FTMS:\(options.advertiseFTMS) CPS:\(options.advertiseCPS) RSC:\(options.advertiseRSC)")
+        eventLog.append("Setting up services - FTMS:\(options.advertiseFTMS) CPS:\(options.advertiseCPS) RSC:\(options.advertiseRSC) HRS:\(options.advertiseHRS) DIS:\(options.advertiseDIS)")
         servicesPendingAdd = 0
         // FTMS
         if options.advertiseFTMS {
@@ -247,6 +325,31 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             servicesPendingAdd += 1
             manager.add(s)
         }
+
+        // HRS
+        if options.advertiseHRS {
+            hrsMeasurement = CBMutableCharacteristic(type: GATT.hrsMeasurement, properties: [.notify], value: nil, permissions: [])
+            hrsMeasurement?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Heart Rate Measurement")]
+            hrsBodySensorLocation = CBMutableCharacteristic(type: GATT.hrsBodySensorLocation, properties: [.read], value: nil, permissions: [.readable])
+            hrsBodySensorLocation?.descriptors = [CBMutableDescriptor(type: CBUUID(string: "2901"), value: "Body Sensor Location")]
+            let s = CBMutableService(type: GATT.heartRate, primary: true)
+            s.characteristics = [hrsMeasurement!, hrsBodySensorLocation!]
+            servicesPendingAdd += 1
+            manager.add(s)
+        }
+
+        // DIS
+        if options.advertiseDIS {
+            disManufacturerName = CBMutableCharacteristic(type: GATT.disManufacturerName, properties: [.read], value: nil, permissions: [.readable])
+            disModelNumber = CBMutableCharacteristic(type: GATT.disModelNumber, properties: [.read], value: nil, permissions: [.readable])
+            disSerialNumber = CBMutableCharacteristic(type: GATT.disSerialNumber, properties: [.read], value: nil, permissions: [.readable])
+            disFirmwareRevision = CBMutableCharacteristic(type: GATT.disFirmwareRevision, properties: [.read], value: nil, permissions: [.readable])
+            disHardwareRevision = CBMutableCharacteristic(type: GATT.disHardwareRevision, properties: [.read], value: nil, permissions: [.readable])
+            let s = CBMutableService(type: GATT.deviceInformation, primary: false)
+            s.characteristics = [disManufacturerName!, disModelNumber!, disSerialNumber!, disFirmwareRevision!, disHardwareRevision!]
+            servicesPendingAdd += 1
+            manager.add(s)
+        }
     }
 
     /// Start periodic notifications per service (FTMS 4Hz, CPS ≤4Hz, RSC 2Hz).
@@ -256,9 +359,10 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     }
 
 
-    /// FTMS periodic updates: compute realistic watts (variance + trainer tau),
-    /// speed from power/grade, cadence via simulation engine, then notify Indoor Bike Data.
-    private func tickFTMS() {
+    /// Run simulation at most once per FTMS cycle to prevent timestamp fragmentation
+    /// when multiple services (FTMS+CPS+RSC) are active simultaneously.
+    private func runSimulationIfNeeded() {
+        guard simulationDirty else { return }
         let now = Date().timeIntervalSince1970
         let dt = max(0.001, now - lastPowerUpdate)
         lastPowerUpdate = now
@@ -268,66 +372,64 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             manualCadence: cadenceMode == .manual ? cadenceRpm : nil,
             gradePercent: gradePercent,
             randomness: randomness,
-            isResting: false
+            isResting: false,
+            simCrr: simCrr > 0 ? simCrr : nil,
+            simCw: simCw > 0 ? simCw : nil,
+            simWindSpeedMps: simWindSpeedMps != 0 ? simWindSpeedMps : nil,
+            powerProfileMode: powerProfileMode
         )
         let state = simulationEngine.update(with: input)
+        lastSimulationState = state
         speedMps = state.speedMps
-        let realisticWatts = state.powerWatts
-        let cad = state.cadenceRpm
-
-        // Notify FTMS with appropriate values based on include flags
-        if options.advertiseFTMS {
-            let wattsToSend = ftmsIncludePower ? realisticWatts : 0
-            let cadenceToSend = ftmsIncludeCadence ? cad : 0
-            notifyFTMS(watts: wattsToSend, cadence: cadenceToSend)
-        }
-        advanceCounters(dt: dt, cadence: cad)
+        lastHeartRateBpm = heartRateSimulator.update(power: Double(state.powerWatts), dt: dt)
+        advanceCounters(dt: dt, cadence: state.cadenceRpm)
         updateLiveStats(simState: state)
+        simulationDirty = false
+    }
+
+    /// FTMS periodic updates: compute realistic watts (variance + trainer tau),
+    /// speed from power/grade, cadence via simulation engine, then notify Indoor Bike Data.
+    private func tickFTMS() {
+        // FTMS fires at 4Hz — mark dirty so simulation runs fresh each cycle
+        simulationDirty = true
+        runSimulationIfNeeded()
+        guard let state = lastSimulationState else { return }
+
+        if options.advertiseFTMS {
+            let wattsToSend = ftmsIncludePower ? state.powerWatts : 0
+            let cadenceToSend = ftmsIncludeCadence ? state.cadenceRpm : 0
+            notifyFTMS(speedKmh: state.speedMps * 3.6, watts: wattsToSend, cadence: cadenceToSend)
+        }
     }
 
     /// CPS periodic updates: same physics + cadence pipeline, then notify CPS Measurement.
     private func tickCPS() {
-        let now = Date().timeIntervalSince1970
-        let dt = max(0.001, now - lastPowerUpdate)
-        lastPowerUpdate = now
+        runSimulationIfNeeded()
+        guard let state = lastSimulationState else { return }
 
-        let input = CyclingSimulationEngine.SimulationInput(
-            targetPower: watts,
-            manualCadence: cadenceMode == .manual ? cadenceRpm : nil,
-            gradePercent: gradePercent,
-            randomness: randomness,
-            isResting: false
-        )
-        let state = simulationEngine.update(with: input)
-        speedMps = state.speedMps
-        let realisticWatts = state.powerWatts
-        let cad = state.cadenceRpm
-
-        // Notify CPS with appropriate values based on include flags
         if options.advertiseCPS {
-            let wattsToSend = cpsIncludePower ? realisticWatts : 0
-            let cadenceToSend = cpsIncludeCadence ? cad : 0
+            let wattsToSend = cpsIncludePower ? state.powerWatts : 0
+            let cadenceToSend = cpsIncludeCadence ? state.cadenceRpm : 0
             notifyCPS(watts: wattsToSend, cadence: cadenceToSend, includeWheel: cpsIncludeSpeed)
         }
-        advanceCounters(dt: dt, cadence: cad)
-        updateLiveStats(simState: state)
     }
 
     /// RSC periodic updates: expose running-like speed/cadence if enabled (simple cadence reuse).
     private func tickRSC() {
-        // Calculate cadence based on mode
-        let input = CyclingSimulationEngine.SimulationInput(
-            targetPower: watts,
-            manualCadence: cadenceMode == .manual ? cadenceRpm : nil,
-            gradePercent: gradePercent,
-            randomness: randomness,
-            isResting: false
-        )
-        let state = simulationEngine.update(with: input)
-        let cad = state.cadenceRpm
+        runSimulationIfNeeded()
+        guard let state = lastSimulationState else { return }
 
         if options.advertiseRSC {
-            notifyRSC(speedMps: speedMps, cadence: cad)
+            notifyRSC(speedMps: state.speedMps, cadence: state.cadenceRpm)
+        }
+    }
+
+    /// HRS periodic updates: send cached heart rate (updated during simulation tick).
+    private func tickHRS() {
+        runSimulationIfNeeded()
+
+        if options.advertiseHRS {
+            notifyHRS(bpm: lastHeartRateBpm)
         }
     }
 
@@ -335,17 +437,25 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     /// - CPS cadence time in 1/1024s
     /// - CPS wheel time in 1/2048s
     private func advanceCounters(dt: Double, cadence: Int) {
-        // crank
-        let expectedRevs = dt * Double(cadence) / 60.0
-        if expectedRevs >= 1.0 { revCount &+= UInt16(expectedRevs.rounded(.toNearestOrAwayFromZero)) }
+        // crank: accumulate fractional revolutions across ticks
+        accumulatedCrankRevs += dt * Double(cadence) / 60.0
+        let wholeCrankRevs = Int(accumulatedCrankRevs)
+        if wholeCrankRevs >= 1 {
+            revCount &+= UInt16(wholeCrankRevs)
+            accumulatedCrankRevs -= Double(wholeCrankRevs)
+        }
         // cadence event time in 1/1024s (matching CPS cadence units)
         cadTimeTicks = UInt16((Date().timeIntervalSince1970 * 1024).truncatingRemainder(dividingBy: 65536))
         // wheel: use circumference 2.096m and 1/2048s tick unit
         let circumference = 2.096
-        // Use a conservative fixed wheel speed for CPS to avoid exposing UI speed controls
         let cpsWheelSpeedMps = 5.0 // ~18 km/h
-        let wheelRevs = dt * (cpsIncludeSpeed ? (cpsWheelSpeedMps / circumference) : 0)
-        if wheelRevs >= 1.0 { wheelCount &+= UInt32(wheelRevs.rounded(.toNearestOrAwayFromZero)) }
+        let wheelRevsDelta = dt * (cpsIncludeSpeed ? (cpsWheelSpeedMps / circumference) : 0)
+        accumulatedWheelRevs += wheelRevsDelta
+        let wholeWheelRevs = Int(accumulatedWheelRevs)
+        if wholeWheelRevs >= 1 {
+            wheelCount &+= UInt32(wholeWheelRevs)
+            accumulatedWheelRevs -= Double(wholeWheelRevs)
+        }
         wheelTimeTicks = UInt16((Date().timeIntervalSince1970 * 2048).truncatingRemainder(dividingBy: 65536))
     }
 
@@ -354,6 +464,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             speedKmh: simState.speedMps * 3.6,
             powerW: simState.powerWatts,
             cadenceRpm: simState.cadenceRpm,
+            heartRateBpm: lastHeartRateBpm,
             mode: cadenceMode == .auto ? "AUTO" : "MANUAL",
             gear: "\(simState.gear.front)x\(simState.gear.rear)",
             targetCadence: Int(simState.targetCadence.rounded()),
@@ -366,9 +477,10 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
     // computeAutoCadence replaced by CadenceManager
 
     // MARK: - Notify Encoders
-    public func notifyFTMS(watts: Int, cadence: Int) {
+    public func notifyFTMS(speedKmh: Double = 0, watts: Int, cadence: Int) {
         guard let ch = ftmsIndoorBikeData else { return }
-        let payload = BLEEncoding.ftmsIndoorBikeData(cadenceRpm: (ftmsIncludeCadence && cadence > 0) ? cadence : nil,
+        let payload = BLEEncoding.ftmsIndoorBikeData(speedKmh: speedKmh,
+                                                     cadenceRpm: (ftmsIncludeCadence && cadence > 0) ? cadence : nil,
                                                      powerW: (ftmsIncludePower && watts != 0) ? watts : nil)
         if manager.updateValue(payload, for: ch, onSubscribedCentrals: nil) == false {
             pendingUpdates.append((ch, payload))
@@ -409,6 +521,19 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
             )
         }
     }
+
+    public func notifyHRS(bpm: Int) {
+        guard let ch = hrsMeasurement else { return }
+        let payload = BLEEncoding.heartRateMeasurement(bpm: bpm)
+        if manager.updateValue(payload, for: ch, onSubscribedCentrals: nil) == false {
+            pendingUpdates.append((ch, payload))
+            ErrorHandler.shared.logBLE(
+                "HRS Measurement transmission failed, queued for retry",
+                severity: .warning,
+                context: ["characteristic": "hrsMeasurement", "queueSize": "\(pendingUpdates.count)"]
+            )
+        }
+    }
 }
 
 // MARK: - BLENotificationScheduler Delegate
@@ -426,16 +551,12 @@ extension PeripheralManager: BLENotificationScheduler.Delegate {
         tickRSC()
     }
 
+    public func schedulerShouldSendHRSNotification() {
+        tickHRS()
+    }
+
     public func schedulerNeedsCadenceForCPSInterval() -> Int {
-        let input = CyclingSimulationEngine.SimulationInput(
-            targetPower: watts,
-            manualCadence: cadenceMode == .manual ? cadenceRpm : nil,
-            gradePercent: gradePercent,
-            randomness: randomness,
-            isResting: false
-        )
-        let state = simulationEngine.update(with: input)
-        return state.cadenceRpm
+        return simulationEngine.currentState.cadenceRpm
     }
 }
 
@@ -525,6 +646,13 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
             self.subscriberCount = max(0, self.subscriberCount - 1)
             if self.subscriberCount == 0 {
                 self.notificationScheduler.stopNotifications()
+                self.pendingUpdates.removeAll()
+                self.revCount = 0
+                self.cadTimeTicks = 0
+                self.wheelCount = 0
+                self.wheelTimeTicks = 0
+                self.accumulatedCrankRevs = 0
+                self.accumulatedWheelRevs = 0
             }
         }
     }
@@ -606,6 +734,32 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
             var buf = Data(count: 2); buf[0] = 0x00; buf[1] = 0x00
             request.value = buf; manager.respond(to: request, withResult: .success); return
         }
+        // HRS Body Sensor Location: 1 = Chest
+        if request.characteristic.uuid == GATT.hrsBodySensorLocation {
+            request.value = Data([0x01])
+            manager.respond(to: request, withResult: .success); return
+        }
+        // DIS characteristics: return trainer identity strings
+        if request.characteristic.uuid == GATT.disManufacturerName {
+            request.value = Data(trainerIdentity.manufacturer.utf8)
+            manager.respond(to: request, withResult: .success); return
+        }
+        if request.characteristic.uuid == GATT.disModelNumber {
+            request.value = Data(trainerIdentity.model.utf8)
+            manager.respond(to: request, withResult: .success); return
+        }
+        if request.characteristic.uuid == GATT.disSerialNumber {
+            request.value = Data(trainerIdentity.serial.utf8)
+            manager.respond(to: request, withResult: .success); return
+        }
+        if request.characteristic.uuid == GATT.disFirmwareRevision {
+            request.value = Data(trainerIdentity.firmwareRevision.utf8)
+            manager.respond(to: request, withResult: .success); return
+        }
+        if request.characteristic.uuid == GATT.disHardwareRevision {
+            request.value = Data(trainerIdentity.hardwareRevision.utf8)
+            manager.respond(to: request, withResult: .success); return
+        }
         manager.respond(to: request, withResult: .attributeNotFound)
     }
 
@@ -668,6 +822,9 @@ nonisolated(unsafe) extension PeripheralManager: CBPeripheralManagerDelegate {
             // Update local properties that depend on control state
             let controlState = controlPointHandler.getState()
             self.gradePercent = controlState.gradePercent
+            self.simCrr = controlState.simCrr
+            self.simCw = controlState.simCw
+            self.simWindSpeedMps = controlState.simWindSpeedMps
 
             // Only sync watts for SetTargetPower command
             if result.command == .setTargetPower {

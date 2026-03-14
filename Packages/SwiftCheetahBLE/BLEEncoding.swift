@@ -4,20 +4,22 @@ import Foundation
 enum BLEEncoding {
     /// Encode FTMS Indoor Bike Data (0x2AD2).
     /// - Parameters:
+    ///   - speedKmh: optional speed in km/h; encoded at 0.01 km/h units per FTMS spec.
     ///   - cadenceRpm: optional cadence in rpm; encoded at 0.5 rpm units if present.
     ///   - powerW: optional instantaneous power in watts; encoded as Int16 if present.
-    /// - Returns: Data payload: [flags,u16] [speed u16=0] [cadence u16?] [power s16?]
-    static func ftmsIndoorBikeData(cadenceRpm: Int?, powerW: Int?) -> Data {
+    /// - Returns: Data payload: [flags,u16] [speed u16] [cadence u16?] [power s16?]
+    static func ftmsIndoorBikeData(speedKmh: Double? = nil, cadenceRpm: Int?, powerW: Int?) -> Data {
         var flags: UInt16 = 0
         if let c = cadenceRpm, c > 0 { flags |= 1 << 2 }
         if let p = powerW, p != 0 { flags |= 1 << 6 }
-        var data = Data(count: 8)
+        var data = Data(count: 10)
         var i = 0
         func putU16(_ v: UInt16) { data[i] = UInt8(truncatingIfNeeded: v & 0xFF); data[i+1] = UInt8(truncatingIfNeeded: v >> 8); i += 2 }
         func putS16(_ v: Int16) { putU16(UInt16(bitPattern: v)) }
         putU16(flags)
-        // Instantaneous speed: set to 0.00 m/s (two bytes LE)
-        putU16(0)
+        // Instantaneous speed in 0.01 km/h units
+        let speedRaw = UInt16(max(0, min(65535, Int((speedKmh ?? 0) * 100))))
+        putU16(speedRaw)
         if (flags & (1 << 2)) != 0 {
             let raw = UInt16(max(0, min(65535, (cadenceRpm ?? 0) * 2)))
             putU16(raw)
@@ -47,6 +49,15 @@ enum BLEEncoding {
         putS16(Int16(clamping: powerW ?? 0))
         if (flags & 0x10) != 0 { putU32(wheelCount!); putU16(wheelTime2048!) }
         if (flags & 0x20) != 0 { putU16(crankRevs!); putU16(crankTime1024!) }
+        return d
+    }
+
+    /// Encode Heart Rate Measurement (0x2A37).
+    /// Flags byte: bit 0 = 0 means HR is UInt8 format (sufficient for 0-255 bpm).
+    static func heartRateMeasurement(bpm: Int) -> Data {
+        var d = Data()
+        d.append(0x00) // flags: HR uint8 format, no extra fields
+        d.append(UInt8(max(0, min(255, bpm))))
         return d
     }
 

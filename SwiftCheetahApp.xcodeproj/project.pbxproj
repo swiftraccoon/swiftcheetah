@@ -30,6 +30,13 @@
 		1A00000D000000000000000A /* ErrorHandling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000A /* ErrorHandling.swift */; };
 		1A00000D000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A10000B0000000000000002 /* Assets.xcassets */; };
 		1A00000E0000000000000001 /* BLEEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000001 /* BLEEncoding.swift */; };
+		1A00000E000000000000000B /* HeartRateSimulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000B /* HeartRateSimulator.swift */; };
+		1A00000E000000000000000C /* ZwiftThresholds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000C /* ZwiftThresholds.swift */; };
+		1A00000E000000000000000D /* CPCReferenceCurves.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000D /* CPCReferenceCurves.swift */; };
+		1A00000E000000000000000E /* CPCSlidingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000E /* CPCSlidingWindow.swift */; };
+		1A00000E000000000000000F /* PowerProfileMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000F /* PowerProfileMode.swift */; };
+		1A00000F0000000000000010 /* ZWOParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000010 /* ZWOParser.swift */; };
+		1A00000F0000000000000011 /* RampTestMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000011 /* RampTestMode.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +65,13 @@
 		1A10000E0000000000000009 /* SimulationStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SimulationStateManager.swift; path = Packages/SwiftCheetahBLE/SimulationStateManager.swift; sourceTree = SOURCE_ROOT; };
 		1A10000E000000000000000A /* ErrorHandling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ErrorHandling.swift; path = Packages/SwiftCheetahCore/ErrorHandling.swift; sourceTree = SOURCE_ROOT; };
 		1A10000F0000000000000001 /* BLEEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BLEEncoding.swift; path = Packages/SwiftCheetahBLE/BLEEncoding.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E000000000000000B /* HeartRateSimulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HeartRateSimulator.swift; path = Packages/SwiftCheetahCore/HeartRateSimulator.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E000000000000000C /* ZwiftThresholds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ZwiftThresholds.swift; path = Packages/SwiftCheetahCore/ZwiftThresholds.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E000000000000000D /* CPCReferenceCurves.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CPCReferenceCurves.swift; path = Packages/SwiftCheetahCore/CPCReferenceCurves.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E000000000000000E /* CPCSlidingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CPCSlidingWindow.swift; path = Packages/SwiftCheetahCore/CPCSlidingWindow.swift; sourceTree = SOURCE_ROOT; };
+		1A10000E000000000000000F /* PowerProfileMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PowerProfileMode.swift; path = Packages/SwiftCheetahCore/PowerProfileMode.swift; sourceTree = SOURCE_ROOT; };
+		1A10000F0000000000000010 /* ZWOParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ZWOParser.swift; path = Packages/SwiftCheetahCore/ZWOParser.swift; sourceTree = SOURCE_ROOT; };
+		1A10000F0000000000000011 /* RampTestMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RampTestMode.swift; path = Packages/SwiftCheetahCore/RampTestMode.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +118,13 @@
 				1A10000E0000000000000008 /* BLENotificationScheduler.swift */,
 				1A10000E0000000000000009 /* SimulationStateManager.swift */,
 				1A10000E000000000000000A /* ErrorHandling.swift */,
+				1A10000E000000000000000B /* HeartRateSimulator.swift */,
+				1A10000E000000000000000C /* ZwiftThresholds.swift */,
+				1A10000E000000000000000D /* CPCReferenceCurves.swift */,
+				1A10000E000000000000000E /* CPCSlidingWindow.swift */,
+				1A10000E000000000000000F /* PowerProfileMode.swift */,
+				1A10000F0000000000000010 /* ZWOParser.swift */,
+				1A10000F0000000000000011 /* RampTestMode.swift */,
 				1A10000B0000000000000001 /* Info.plist */,
 				1A10000B0000000000000002 /* Assets.xcassets */,
 			);
@@ -203,6 +224,13 @@
 				1A00000D0000000000000008 /* BLENotificationScheduler.swift in Sources */,
 				1A00000D0000000000000009 /* SimulationStateManager.swift in Sources */,
 				1A00000D000000000000000A /* ErrorHandling.swift in Sources */,
+				1A00000E000000000000000B /* HeartRateSimulator.swift in Sources */,
+				1A00000E000000000000000C /* ZwiftThresholds.swift in Sources */,
+				1A00000E000000000000000D /* CPCReferenceCurves.swift in Sources */,
+				1A00000E000000000000000E /* CPCSlidingWindow.swift in Sources */,
+				1A00000E000000000000000F /* PowerProfileMode.swift in Sources */,
+				1A00000F0000000000000010 /* ZWOParser.swift in Sources */,
+				1A00000F0000000000000011 /* RampTestMode.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

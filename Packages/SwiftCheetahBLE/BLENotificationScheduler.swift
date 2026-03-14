@@ -12,6 +12,7 @@ public final class BLENotificationScheduler: @unchecked Sendable {
         public static let ftmsInterval: TimeInterval = 0.25  // 4 Hz
         public static let rscInterval: TimeInterval = 0.5    // 2 Hz
         public static let cpsMaxInterval: TimeInterval = 0.25 // Max 4 Hz
+        public static let hrsInterval: TimeInterval = 1.0    // 1 Hz
     }
 
     /// Delegate for notification callbacks
@@ -19,6 +20,7 @@ public final class BLENotificationScheduler: @unchecked Sendable {
         func schedulerShouldSendFTMSNotification()
         func schedulerShouldSendCPSNotification()
         func schedulerShouldSendRSCNotification()
+        func schedulerShouldSendHRSNotification()
         func schedulerNeedsCadenceForCPSInterval() -> Int
     }
 
@@ -27,6 +29,7 @@ public final class BLENotificationScheduler: @unchecked Sendable {
     private var ftmsTimer: Timer?
     private var cpsTimer: Timer?
     private var rscTimer: Timer?
+    private var hrsTimer: Timer?
     private var isActive: Bool = false
 
     public init() {}
@@ -39,9 +42,11 @@ public final class BLENotificationScheduler: @unchecked Sendable {
         ftmsTimer?.invalidate()
         cpsTimer?.invalidate()
         rscTimer?.invalidate()
+        hrsTimer?.invalidate()
         ftmsTimer = nil
         cpsTimer = nil
         rscTimer = nil
+        hrsTimer = nil
 
         isActive = true
 
@@ -57,6 +62,11 @@ public final class BLENotificationScheduler: @unchecked Sendable {
         rscTimer = Timer.scheduledTimer(withTimeInterval: NotificationConfig.rscInterval, repeats: true) { [weak self] _ in
             self?.delegate?.schedulerShouldSendRSCNotification()
         }
+
+        // HRS at 1 Hz
+        hrsTimer = Timer.scheduledTimer(withTimeInterval: NotificationConfig.hrsInterval, repeats: true) { [weak self] _ in
+            self?.delegate?.schedulerShouldSendHRSNotification()
+        }
     }
 
     /// Stop all notification timers
@@ -65,9 +75,11 @@ public final class BLENotificationScheduler: @unchecked Sendable {
         ftmsTimer?.invalidate()
         cpsTimer?.invalidate()
         rscTimer?.invalidate()
+        hrsTimer?.invalidate()
         ftmsTimer = nil
         cpsTimer = nil
         rscTimer = nil
+        hrsTimer = nil
     }
 
     /// CPS uses dynamic interval based on cadence to match crank events
@@ -84,8 +96,8 @@ public final class BLENotificationScheduler: @unchecked Sendable {
         if cadence > 0 {
             // Match crank event timing
             let cadenceBasedInterval = 60.0 / Double(cadence)
-            // Cap at max frequency (4Hz)
-            interval = min(NotificationConfig.cpsMaxInterval, cadenceBasedInterval)
+            // Cap at max frequency (4Hz) — interval must not be shorter than max rate
+            interval = max(NotificationConfig.cpsMaxInterval, cadenceBasedInterval)
         } else {
             // Default interval when no cadence
             interval = NotificationConfig.cpsMaxInterval
