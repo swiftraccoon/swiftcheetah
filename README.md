@@ -6,11 +6,14 @@
 
 SwiftCheetah is a macOS app (Swift/SwiftUI) that acts as a Bluetooth LE peripheral for fitness software. It broadcasts FTMS, CPS and RSC services and generates realistic indoor‑bike metrics using research‑backed physics and cadence models. The codebase is split into a pure core (engine) and the BLE/app layers.
 
+SwiftCheetah supports two broadcast modes: **BLE** (CoreBluetooth peripheral) and **DIRCON** (Wahoo DIRCON — BLE GATT over TCP). DIRCON enables same‑machine operation with both SwiftCheetah and Zwift running on the same Mac, bypassing the macOS CoreBluetooth limitation where local BLE peripheral advertisements are not visible to centrals in other processes.
+
 ## Status
 
 ### Completed Features
 
 - BLE peripheral for FTMS (0x1826), CPS (0x1818), RSC (0x1814)
+- DIRCON server (Wahoo DIRCON — BLE GATT over TCP) for same‑machine Zwift operation via mDNS discovery
 - FTMS Control Point with 20+ commands (Request Control, Reset, Set Target Power, Start/Stop, Set Indoor Bike Simulation)
 - FTMS Indoor Bike Data notifications (speed encoded as 0, cadence, power)
 - Research-based physics engine (power→speed calculations, cadence modeling with grade effects and gear constraints)
@@ -25,6 +28,7 @@ SwiftCheetah is a macOS app (Swift/SwiftUI) that acts as a Bluetooth LE peripher
 - **BLENotificationScheduler**: Timer management with delegate pattern
 - **SimulationStateManager**: Centralized state and configuration management
 - **PeripheralManager**: Thin facade coordinator maintaining backward compatibility
+- **DIRCONServer**: Wahoo DIRCON transport — TCP listener with mDNS advertisement, mirrors PeripheralManager's interface
 
 ### Newly Added Components
 
@@ -49,7 +53,7 @@ SwiftCheetah is a macOS app (Swift/SwiftUI) that acts as a Bluetooth LE peripher
 
 - `Package.swift` — Swift package manifest (core + BLE)
 - `Packages/SwiftCheetahCore/` — engine modules (physics, cadence, validation, configuration, utilities)
-- `Packages/SwiftCheetahBLE/` — BLE layer (peripheral manager, control handlers, schedulers, encoders)
+- `Packages/SwiftCheetahBLE/` — BLE layer (peripheral manager, DIRCON server, control handlers, schedulers, encoders)
 - `SwiftCheetah/` — macOS app GUI (App/, Views/, Resources/)
 - `SwiftCheetahApp.xcodeproj` — Xcode project for macOS app (at repository root)
 - `Tests/` — comprehensive unit tests with research validation, optional integration test harness
@@ -80,7 +84,7 @@ SwiftCheetah is a macOS app (Swift/SwiftUI) that acts as a Bluetooth LE peripher
 
 **Physics Engine**: Deterministic simulation using gravity/rolling/aero resistance with drivetrain efficiency, descent terminal velocity, and Newton-Raphson solver. All parameters validated against research ranges.
 
-**BLE Protocol**: Full FTMS compliance with 20+ control commands, proper response/status handling, and dynamic notification scheduling.
+**BLE Protocol**: Full FTMS compliance with 20+ control commands, proper response/status handling, and dynamic notification scheduling. DIRCON mode wraps the same GATT payloads in a 6‑byte TCP header for Wahoo‑compatible discovery and connection.
 
 ## Known Limitations
 
@@ -88,7 +92,12 @@ SwiftCheetah is a macOS app (Swift/SwiftUI) that acts as a Bluetooth LE peripher
 
 ## Integration Test Harness (Optional)
 
-- To run the central‑side integration test locally:
+- **BLE integration test** — run the central‑side integration test locally:
   - In Xcode: Edit Scheme → Test → Environment Variables → set `BLE_INTEGRATION=1`
   - Or via CLI: `BLE_INTEGRATION=1 xcodebuild -project SwiftCheetahApp.xcodeproj -scheme SwiftCheetahApp -destination 'platform=macOS' test`
   - The test scans, connects, subscribes to FTMS Indoor Bike Data, and asserts a notification payload.
+
+- **DIRCON integration test** — validates the TCP transport end‑to‑end:
+  - In Xcode: Edit Scheme → Test → Environment Variables → set `DIRCON_INTEGRATION=1`
+  - Or via CLI: `DIRCON_INTEGRATION=1 xcodebuild -project SwiftCheetahApp.xcodeproj -scheme SwiftCheetahApp -destination 'platform=macOS' test`
+  - The test starts the DIRCON server, connects via TCP, performs GATT discovery, writes a control point command, and verifies notification delivery.
