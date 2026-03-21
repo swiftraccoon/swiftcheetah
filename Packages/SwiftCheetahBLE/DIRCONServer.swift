@@ -448,12 +448,22 @@ public final class DIRCONServer: NSObject, ObservableObject, @unchecked Sendable
                 controlPointHandler.setState(state)
 
                 // Sync state to published properties
+                // Only sync watts for SetTargetPower — other commands must not
+                // overwrite the user's manual power setting with the default.
+                let isSetTargetPower = result.command == .setTargetPower
+                let syncGrade = state.gradePercent
+                let syncCrr = state.simCrr
+                let syncCw = state.simCw
+                let syncWind = state.simWindSpeedMps
+                let syncPower = state.targetPower
                 Task { @MainActor in
-                    self.watts = state.targetPower
-                    self.gradePercent = state.gradePercent
-                    self.simCrr = state.simCrr
-                    self.simCw = state.simCw
-                    self.simWindSpeedMps = state.simWindSpeedMps
+                    if isSetTargetPower {
+                        self.watts = syncPower
+                    }
+                    self.gradePercent = syncGrade
+                    self.simCrr = syncCrr
+                    self.simCw = syncCw
+                    self.simWindSpeedMps = syncWind
                 }
             }
 
