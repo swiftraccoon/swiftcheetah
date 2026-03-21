@@ -67,13 +67,30 @@ final class DIRCONProtocolTests: XCTestCase {
     }
 
     func testDeserializeValidHeader() {
+        let expectedUUID = DIRCONProtocol.wireUUID(from: 0x2AD9)
         var fullData = Data([1, 0x04, 5, 0, 0x00, 0x10])
-        fullData.append(contentsOf: DIRCONProtocol.wireUUID(from: 0x2AD9))
+        fullData.append(contentsOf: expectedUUID)
         let msg = DIRCONMessage.deserialize(from: fullData)
         XCTAssertNotNil(msg)
         XCTAssertEqual(msg?.opcode, .writeCharacteristic)
         XCTAssertEqual(msg?.sequenceNumber, 5)
         XCTAssertEqual(msg?.payload.count, 16)
+        // Verify payload bytes match the UUID we sent
+        XCTAssertEqual([UInt8](msg!.payload), expectedUUID)
+    }
+
+    func testSerializeDeserializeRoundTrip() {
+        let original = DIRCONMessage(
+            opcode: .writeCharacteristic, sequenceNumber: 42, responseCode: 0,
+            payload: Data([0xDE, 0xAD, 0xBE, 0xEF])
+        )
+        let wire = original.serialize()
+        let decoded = DIRCONMessage.deserialize(from: wire)
+        XCTAssertNotNil(decoded)
+        XCTAssertEqual(decoded?.opcode, original.opcode)
+        XCTAssertEqual(decoded?.sequenceNumber, original.sequenceNumber)
+        XCTAssertEqual(decoded?.responseCode, original.responseCode)
+        XCTAssertEqual(decoded?.payload, original.payload)
     }
 
     func testDeserializeRejectsShortData() {
