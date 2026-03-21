@@ -44,6 +44,13 @@ public final class DIRCONServiceTable: @unchecked Sendable {
                 Characteristic(shortUUID: 0x2A53, properties: .notify),
                 Characteristic(shortUUID: 0x2A54, properties: .read),
             ]),
+            Service(shortUUID: 0x180A, characteristics: [
+                Characteristic(shortUUID: 0x2A29, properties: .read),
+                Characteristic(shortUUID: 0x2A24, properties: .read),
+                Characteristic(shortUUID: 0x2A25, properties: .read),
+                Characteristic(shortUUID: 0x2A26, properties: .read),
+                Characteristic(shortUUID: 0x2A27, properties: .read),
+            ]),
         ]
     }
 
