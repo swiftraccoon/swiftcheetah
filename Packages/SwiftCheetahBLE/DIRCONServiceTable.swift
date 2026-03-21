@@ -9,7 +9,7 @@ public struct DIRCONCharProperties: OptionSet, Sendable {
     public static let indicate = DIRCONCharProperties(rawValue: 0x08)
 }
 
-public final class DIRCONServiceTable: Sendable {
+public final class DIRCONServiceTable: @unchecked Sendable {
     public struct Characteristic: Sendable {
         public let shortUUID: UInt16
         public let properties: DIRCONCharProperties
@@ -44,6 +44,13 @@ public final class DIRCONServiceTable: Sendable {
                 Characteristic(shortUUID: 0x2A53, properties: .notify),
                 Characteristic(shortUUID: 0x2A54, properties: .read),
             ]),
+            Service(shortUUID: 0x180A, characteristics: [
+                Characteristic(shortUUID: 0x2A29, properties: .read),
+                Characteristic(shortUUID: 0x2A24, properties: .read),
+                Characteristic(shortUUID: 0x2A25, properties: .read),
+                Characteristic(shortUUID: 0x2A26, properties: .read),
+                Characteristic(shortUUID: 0x2A27, properties: .read),
+            ]),
         ]
     }
 
@@ -66,6 +73,9 @@ public final class DIRCONServiceTable: Sendable {
         return data
     }
 
+    /// Optional trainer identity for DIS characteristic reads.
+    public var trainerIdentity: PeripheralManager.TrainerIdentity = PeripheralManager.TrainerIdentity()
+
     public func readCharacteristicValue(shortUUID: UInt16) -> Data? {
         switch shortUUID {
         case 0x2ACC: // FTMS Feature
@@ -73,7 +83,7 @@ public final class DIRCONServiceTable: Sendable {
             var lower: UInt32 = 0
             lower |= 1 << 1; lower |= 1 << 14
             var upper: UInt32 = 0
-            upper |= 1 << 5; upper |= 1 << 13
+            upper |= 1 << 3; upper |= 1 << 13
             buf[0] = UInt8(lower & 0xFF); buf[1] = UInt8((lower >> 8) & 0xFF)
             buf[2] = UInt8((lower >> 16) & 0xFF); buf[3] = UInt8((lower >> 24) & 0xFF)
             buf[4] = UInt8(upper & 0xFF); buf[5] = UInt8((upper >> 8) & 0xFF)
@@ -90,6 +100,16 @@ public final class DIRCONServiceTable: Sendable {
             return Data([1])
         case 0x2A54: // RSC Feature
             return Data([0x00, 0x00])
+        case 0x2A29: // Manufacturer Name
+            return Data(trainerIdentity.manufacturer.utf8)
+        case 0x2A24: // Model Number
+            return Data(trainerIdentity.model.utf8)
+        case 0x2A25: // Serial Number
+            return Data(trainerIdentity.serial.utf8)
+        case 0x2A26: // Firmware Revision
+            return Data(trainerIdentity.firmwareRevision.utf8)
+        case 0x2A27: // Hardware Revision
+            return Data(trainerIdentity.hardwareRevision.utf8)
         default:
             return nil
         }

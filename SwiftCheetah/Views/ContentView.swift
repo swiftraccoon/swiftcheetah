@@ -14,6 +14,7 @@ protocol BroadcastServerStats {
     var speedKmh: Double { get }
     var powerW: Int { get }
     var cadenceRpm: Int { get }
+    var heartRateBpm: Int { get }
     var gear: String { get }
     var gradePercent: Double { get }
 }
@@ -40,6 +41,11 @@ protocol BroadcastServer: ObservableObject {
     var advertiseFTMS: Bool { get set }
     var advertiseCPS: Bool { get set }
     var advertiseRSC: Bool { get set }
+    var advertiseHRS: Bool { get set }
+    var advertiseDIS: Bool { get set }
+
+    // Power profile
+    var powerProfileMode: PowerProfileMode { get set }
 
     // Field toggles
     var ftmsIncludePower: Bool { get set }
@@ -315,6 +321,18 @@ struct BroadcastSettingsCard<S: BroadcastServer>: View {
                         isOn: $server.advertiseRSC
                     )
                 }
+                HStack(spacing: 12) {
+                    ServiceToggle(
+                        title: "HRS",
+                        icon: "heart.fill",
+                        isOn: $server.advertiseHRS
+                    )
+                    ServiceToggle(
+                        title: "DIS",
+                        icon: "info.circle.fill",
+                        isOn: $server.advertiseDIS
+                    )
+                }
             }
 
             if server.advertiseFTMS {
@@ -348,6 +366,22 @@ struct BroadcastSettingsCard<S: BroadcastServer>: View {
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Power Profile")
+                    .font(.system(.subheadline, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Picker("Mode", selection: $server.powerProfileMode) {
+                    Text("Uncapped").tag(PowerProfileMode.uncapped)
+                    Text("CPC Safe").tag(PowerProfileMode.cpcSafe)
+                    Text("CPC Edge").tag(PowerProfileMode.cpcEdge)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
         }
         .padding(16)
@@ -496,6 +530,14 @@ struct LiveMetricsCard<S: BroadcastServer>: View {
                     value: "\(server.stats.cadenceRpm)",
                     unit: "rpm",
                     color: .blue
+                )
+
+                MetricRow(
+                    icon: "heart.fill",
+                    title: "Heart Rate",
+                    value: "\(server.stats.heartRateBpm)",
+                    unit: "bpm",
+                    color: .red
                 )
 
                 Divider()

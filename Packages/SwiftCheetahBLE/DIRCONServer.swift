@@ -34,7 +34,10 @@ public final class DIRCONServer: NSObject, ObservableObject, @unchecked Sendable
     @Published public var advertiseCPS: Bool = false
     @Published public var advertiseRSC: Bool = false
     @Published public var advertiseHRS: Bool = false
+    @Published public var advertiseDIS: Bool = false
+    @Published public var trainerIdentity: PeripheralManager.TrainerIdentity = PeripheralManager.TrainerIdentity()
     @Published public var powerProfileMode: PowerProfileMode = .uncapped
+    @Published public var eventPreset: EventPreset = .freeRide
 
     // Field toggles (mirrors PeripheralManager for UI compatibility)
     @Published public var ftmsIncludePower: Bool = true
@@ -593,8 +596,7 @@ public final class DIRCONServer: NSObject, ObservableObject, @unchecked Sendable
         cadTimeTicks = UInt16((Date().timeIntervalSince1970 * 1024).truncatingRemainder(dividingBy: 65536))
 
         let circumference = 2.096
-        let wheelSpeedMps = 5.0
-        let wheelRevsDelta = dt * (wheelSpeedMps / circumference)
+        let wheelRevsDelta = dt * (cpsIncludeSpeed ? (speedMps / circumference) : 0)
         accumulatedWheelRevs += wheelRevsDelta
         let wholeWheelRevs = Int(accumulatedWheelRevs)
         if wholeWheelRevs >= 1 {
@@ -627,10 +629,12 @@ public final class DIRCONServer: NSObject, ObservableObject, @unchecked Sendable
         guard let state = lastSimulationState else { return }
 
         if advertiseFTMS {
+            let wattsToSend = ftmsIncludePower ? state.powerWatts : 0
+            let cadenceToSend = ftmsIncludeCadence ? state.cadenceRpm : 0
             let payload = BLEEncoding.ftmsIndoorBikeData(
                 speedKmh: state.speedMps * 3.6,
-                cadenceRpm: state.cadenceRpm > 0 ? state.cadenceRpm : nil,
-                powerW: state.powerWatts != 0 ? state.powerWatts : nil
+                cadenceRpm: (ftmsIncludeCadence && cadenceToSend > 0) ? cadenceToSend : nil,
+                powerW: (ftmsIncludePower && wattsToSend != 0) ? wattsToSend : nil
             )
             sendNotification(charShortUUID: 0x2AD2, payload: payload)
         }
@@ -641,12 +645,14 @@ public final class DIRCONServer: NSObject, ObservableObject, @unchecked Sendable
         guard let state = lastSimulationState else { return }
 
         if advertiseCPS {
+            let wattsToSend = cpsIncludePower ? state.powerWatts : 0
+            let cadenceToSend = cpsIncludeCadence ? state.cadenceRpm : 0
             let payload = BLEEncoding.cpsMeasurement(
-                powerW: state.powerWatts,
-                wheelCount: wheelCount,
-                wheelTime2048: wheelTimeTicks,
-                crankRevs: state.cadenceRpm > 0 ? revCount : nil,
-                crankTime1024: state.cadenceRpm > 0 ? cadTimeTicks : nil
+                powerW: wattsToSend,
+                wheelCount: cpsIncludeSpeed ? wheelCount : nil,
+                wheelTime2048: cpsIncludeSpeed ? wheelTimeTicks : nil,
+                crankRevs: cadenceToSend > 0 ? revCount : nil,
+                crankTime1024: cadenceToSend > 0 ? cadTimeTicks : nil
             )
             sendNotification(charShortUUID: 0x2A63, payload: payload)
         }
