@@ -36,6 +36,13 @@ public final class DIRCONServer: NSObject, ObservableObject, @unchecked Sendable
     @Published public var advertiseHRS: Bool = false
     @Published public var powerProfileMode: PowerProfileMode = .uncapped
 
+    // Field toggles (mirrors PeripheralManager for UI compatibility)
+    @Published public var ftmsIncludePower: Bool = true
+    @Published public var ftmsIncludeCadence: Bool = true
+    @Published public var cpsIncludePower: Bool = true
+    @Published public var cpsIncludeCadence: Bool = true
+    @Published public var cpsIncludeSpeed: Bool = true
+
     @Published public var localName: String = "Trainer"
 
     // Live stats for UI
