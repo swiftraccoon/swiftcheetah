@@ -448,8 +448,7 @@ public final class PeripheralManager: NSObject, ObservableObject, @unchecked Sen
         cadTimeTicks = UInt16((Date().timeIntervalSince1970 * 1024).truncatingRemainder(dividingBy: 65536))
         // wheel: use circumference 2.096m and 1/2048s tick unit
         let circumference = 2.096
-        let cpsWheelSpeedMps = 5.0 // ~18 km/h
-        let wheelRevsDelta = dt * (cpsIncludeSpeed ? (cpsWheelSpeedMps / circumference) : 0)
+        let wheelRevsDelta = dt * (cpsIncludeSpeed ? (speedMps / circumference) : 0)
         accumulatedWheelRevs += wheelRevsDelta
         let wholeWheelRevs = Int(accumulatedWheelRevs)
         if wholeWheelRevs >= 1 {

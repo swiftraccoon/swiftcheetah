@@ -1,43 +1,123 @@
 import SwiftUI
 
+// MARK: - Broadcast Mode
+
+enum BroadcastMode: String, CaseIterable {
+    case ble = "BLE"
+    case dircon = "DIRCON"
+}
+
+// MARK: - Protocol abstracting PeripheralManager / DIRCONServer
+
+/// Subset of stats fields the UI cards need.
+protocol BroadcastServerStats {
+    var speedKmh: Double { get }
+    var powerW: Int { get }
+    var cadenceRpm: Int { get }
+    var heartRateBpm: Int { get }
+    var gear: String { get }
+    var gradePercent: Double { get }
+}
+
+/// Shared interface for both BLE and DIRCON broadcast servers.
+@MainActor
+protocol BroadcastServer: ObservableObject {
+    associatedtype Stats: BroadcastServerStats
+
+    // Read-only status
+    var isAdvertising: Bool { get }
+    var subscriberCount: Int { get }
+    var eventLog: [String] { get }
+    var stats: Stats { get }
+
+    // Simulation inputs
+    var watts: Int { get set }
+    var cadenceRpm: Int { get set }
+    var gradePercent: Double { get set }
+    var randomness: Int { get set }
+    var increment: Int { get set }
+
+    // Service toggles
+    var advertiseFTMS: Bool { get set }
+    var advertiseCPS: Bool { get set }
+    var advertiseRSC: Bool { get set }
+    var advertiseHRS: Bool { get set }
+    var advertiseDIS: Bool { get set }
+
+    // Power profile
+    var powerProfileMode: PowerProfileMode { get set }
+
+    // Field toggles
+    var ftmsIncludePower: Bool { get set }
+    var ftmsIncludeCadence: Bool { get set }
+    var cpsIncludePower: Bool { get set }
+    var cpsIncludeCadence: Bool { get set }
+    var cpsIncludeSpeed: Bool { get set }
+
+    // Device name
+    var localName: String { get set }
+
+    // Cadence mode abstraction (avoids needing the nested enum type)
+    var cadenceModeIsAuto: Bool { get set }
+
+    // Lifecycle
+    func startBroadcast()
+    func stopBroadcast()
+}
+
+// MARK: - PeripheralManager conformance
+
+extension PeripheralManager.LiveStats: BroadcastServerStats {}
+
+extension PeripheralManager: BroadcastServer {
+    var cadenceModeIsAuto: Bool {
+        get { cadenceMode == .auto }
+        set { cadenceMode = newValue ? .auto : .manual }
+    }
+    func startBroadcast() { startBroadcast(localName: nil, options: nil) }
+}
+
+// MARK: - DIRCONServer conformance
+
+extension DIRCONServer.LiveStats: BroadcastServerStats {}
+
+extension DIRCONServer: BroadcastServer {
+    var cadenceModeIsAuto: Bool {
+        get { cadenceMode == .auto }
+        set { cadenceMode = newValue ? .auto : .manual }
+    }
+    func startBroadcast() { startBroadcast(localName: nil) }
+}
+
+// MARK: - ContentView
+
 struct ContentView: View {
     @StateObject private var periph = PeripheralManager()
+    @StateObject private var dircon = DIRCONServer()
     @State private var broadcasting = false
+    @State private var broadcastMode: BroadcastMode = .dircon
     @State private var showEventLog = false
 
     var body: some View {
         VStack(spacing: 0) {
+            // Status bar — reads from the active server
             BroadcastStatusBar(
-                isAdvertising: periph.isAdvertising,
+                isAdvertising: activeIsAdvertising,
                 broadcasting: $broadcasting,
-                deviceName: $periph.localName,
-                subscriberCount: periph.subscriberCount
+                deviceName: activeDeviceNameBinding,
+                subscriberCount: activeSubscriberCount,
+                broadcastMode: $broadcastMode
             )
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
 
             ScrollView {
                 VStack(spacing: 20) {
-                    HStack(alignment: .top, spacing: 20) {
-                        VStack(spacing: 20) {
-                            BroadcastSettingsCard(periph: periph)
-                            SimulationControlsCard(periph: periph)
-                        }
-                        .frame(maxWidth: .infinity)
-
-                        LiveMetricsCard(periph: periph)
-                            .frame(width: 320)
+                    if broadcastMode == .ble {
+                        serverCards(server: periph)
+                    } else {
+                        serverCards(server: dircon)
                     }
-                    .padding(.horizontal, 20)
-
-                    PerformanceGraphCard(periph: periph)
-                        .padding(.horizontal, 20)
-
-                    ActivityFeedCard(
-                        eventLog: periph.eventLog,
-                        isExpanded: $showEventLog
-                    )
-                    .padding(.horizontal, 20)
                 }
                 .padding(.bottom, 20)
             }
@@ -46,24 +126,84 @@ struct ContentView: View {
         .background(Color(.windowBackgroundColor))
         .onChange(of: broadcasting) { _, on in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                if on && !periph.isAdvertising {
-                    periph.startBroadcast()
-                } else if !on && periph.isAdvertising {
-                    periph.stopBroadcast()
+                if broadcastMode == .ble {
+                    if on && !periph.isAdvertising { periph.startBroadcast() }
+                    else if !on && periph.isAdvertising { periph.stopBroadcast() }
+                } else {
+                    if on && !dircon.isAdvertising { dircon.startBroadcast() }
+                    else if !on && dircon.isAdvertising { dircon.stopBroadcast() }
                 }
             }
         }
         .onChange(of: periph.isAdvertising) { _, isOn in
-            broadcasting = isOn
+            if broadcastMode == .ble { broadcasting = isOn }
+        }
+        .onChange(of: dircon.isAdvertising) { _, isOn in
+            if broadcastMode == .dircon { broadcasting = isOn }
+        }
+        .onChange(of: broadcastMode) { oldMode, newMode in
+            // Stop previous server if broadcasting, then sync state
+            if broadcasting {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    if oldMode == .ble { periph.stopBroadcast() }
+                    else { dircon.stopBroadcast() }
+                    broadcasting = false
+                }
+            }
         }
     }
+
+    // MARK: - Active server helpers
+
+    private var activeIsAdvertising: Bool {
+        broadcastMode == .ble ? periph.isAdvertising : dircon.isAdvertising
+    }
+
+    private var activeSubscriberCount: Int {
+        broadcastMode == .ble ? periph.subscriberCount : dircon.subscriberCount
+    }
+
+    private var activeDeviceNameBinding: Binding<String> {
+        broadcastMode == .ble
+            ? $periph.localName
+            : $dircon.localName
+    }
+
+    // MARK: - Generic card layout
+
+    @ViewBuilder
+    private func serverCards<S: BroadcastServer>(server: S) -> some View {
+        HStack(alignment: .top, spacing: 20) {
+            VStack(spacing: 20) {
+                BroadcastSettingsCard(server: server)
+                SimulationControlsCard(server: server)
+            }
+            .frame(maxWidth: .infinity)
+
+            LiveMetricsCard(server: server)
+                .frame(width: 320)
+        }
+        .padding(.horizontal, 20)
+
+        PerformanceGraphCard(server: server)
+            .padding(.horizontal, 20)
+
+        ActivityFeedCard(
+            eventLog: server.eventLog,
+            isExpanded: $showEventLog
+        )
+        .padding(.horizontal, 20)
+    }
 }
+
+// MARK: - BroadcastStatusBar
 
 struct BroadcastStatusBar: View {
     let isAdvertising: Bool
     @Binding var broadcasting: Bool
     @Binding var deviceName: String
     let subscriberCount: Int
+    @Binding var broadcastMode: BroadcastMode
 
     var body: some View {
         HStack(spacing: 16) {
@@ -92,8 +232,22 @@ struct BroadcastStatusBar: View {
             Divider()
                 .frame(height: 24)
 
+            // Mode picker
+            Picker("Mode", selection: $broadcastMode) {
+                ForEach(BroadcastMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 130)
+            .disabled(broadcasting)
+
+            Divider()
+                .frame(height: 24)
+
             HStack(spacing: 8) {
-                Image(systemName: "wifi.router")
+                Image(systemName: broadcastMode == .ble ? "antenna.radiowaves.left.and.right" : "wifi.router")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.secondary)
 
@@ -134,8 +288,10 @@ struct BroadcastStatusBar: View {
     }
 }
 
-struct BroadcastSettingsCard: View {
-    @ObservedObject var periph: PeripheralManager
+// MARK: - BroadcastSettingsCard
+
+struct BroadcastSettingsCard<S: BroadcastServer>: View {
+    @ObservedObject var server: S
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -152,22 +308,34 @@ struct BroadcastSettingsCard: View {
                     ServiceToggle(
                         title: "FTMS",
                         icon: "gauge.with.dots.needle.bottom.50percent",
-                        isOn: $periph.advertiseFTMS
+                        isOn: $server.advertiseFTMS
                     )
                     ServiceToggle(
                         title: "CPS",
                         icon: "bicycle",
-                        isOn: $periph.advertiseCPS
+                        isOn: $server.advertiseCPS
                     )
                     ServiceToggle(
                         title: "RSC",
                         icon: "figure.run",
-                        isOn: $periph.advertiseRSC
+                        isOn: $server.advertiseRSC
+                    )
+                }
+                HStack(spacing: 12) {
+                    ServiceToggle(
+                        title: "HRS",
+                        icon: "heart.fill",
+                        isOn: $server.advertiseHRS
+                    )
+                    ServiceToggle(
+                        title: "DIS",
+                        icon: "info.circle.fill",
+                        isOn: $server.advertiseDIS
                     )
                 }
             }
 
-            if periph.advertiseFTMS {
+            if server.advertiseFTMS {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -176,14 +344,14 @@ struct BroadcastSettingsCard: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 16) {
-                        FieldToggle(title: "Power", isOn: $periph.ftmsIncludePower)
-                        FieldToggle(title: "Cadence", isOn: $periph.ftmsIncludeCadence)
+                        FieldToggle(title: "Power", isOn: $server.ftmsIncludePower)
+                        FieldToggle(title: "Cadence", isOn: $server.ftmsIncludeCadence)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            if periph.advertiseCPS {
+            if server.advertiseCPS {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -192,12 +360,28 @@ struct BroadcastSettingsCard: View {
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 16) {
-                        FieldToggle(title: "Power", isOn: $periph.cpsIncludePower)
-                        FieldToggle(title: "Cadence", isOn: $periph.cpsIncludeCadence)
-                        FieldToggle(title: "Speed", isOn: $periph.cpsIncludeSpeed)
+                        FieldToggle(title: "Power", isOn: $server.cpsIncludePower)
+                        FieldToggle(title: "Cadence", isOn: $server.cpsIncludeCadence)
+                        FieldToggle(title: "Speed", isOn: $server.cpsIncludeSpeed)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Power Profile")
+                    .font(.system(.subheadline, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Picker("Mode", selection: $server.powerProfileMode) {
+                    Text("Uncapped").tag(PowerProfileMode.uncapped)
+                    Text("CPC Safe").tag(PowerProfileMode.cpcSafe)
+                    Text("CPC Edge").tag(PowerProfileMode.cpcEdge)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
         }
         .padding(16)
@@ -207,8 +391,10 @@ struct BroadcastSettingsCard: View {
     }
 }
 
-struct SimulationControlsCard: View {
-    @ObservedObject var periph: PeripheralManager
+// MARK: - SimulationControlsCard
+
+struct SimulationControlsCard<S: BroadcastServer>: View {
+    @ObservedObject var server: S
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -216,11 +402,14 @@ struct SimulationControlsCard: View {
                 .font(.system(.headline, weight: .semibold))
                 .foregroundStyle(.primary)
 
-            Picker("Mode", selection: $periph.cadenceMode) {
+            Picker("Mode", selection: Binding(
+                get: { server.cadenceModeIsAuto },
+                set: { server.cadenceModeIsAuto = $0 }
+            )) {
                 Label("Auto", systemImage: "wand.and.stars")
-                    .tag(PeripheralManager.CadenceMode.auto)
+                    .tag(true)
                 Label("Manual", systemImage: "hand.draw")
-                    .tag(PeripheralManager.CadenceMode.manual)
+                    .tag(false)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -229,35 +418,35 @@ struct SimulationControlsCard: View {
                 MetricSlider(
                     title: "Power",
                     value: Binding(
-                        get: { Double(periph.watts) },
-                        set: { periph.watts = Int($0) }
+                        get: { Double(server.watts) },
+                        set: { server.watts = Int($0) }
                     ),
                     range: 0...1000,
-                    step: Double(periph.increment),
+                    step: Double(server.increment),
                     unit: "W",
                     icon: "bolt.fill",
-                    color: powerZoneColor(for: periph.watts)
+                    color: powerZoneColor(for: server.watts)
                 )
 
                 MetricSlider(
                     title: "Cadence",
                     value: Binding(
-                        get: { Double(periph.cadenceRpm) },
-                        set: { periph.cadenceRpm = Int($0) }
+                        get: { Double(server.cadenceRpm) },
+                        set: { server.cadenceRpm = Int($0) }
                     ),
                     range: 0...200,
                     step: 1,
                     unit: "rpm",
                     icon: "arrow.triangle.2.circlepath",
                     color: .blue,
-                    disabled: periph.cadenceMode == .auto
+                    disabled: server.cadenceModeIsAuto
                 )
 
                 MetricSlider(
                     title: "Variance",
                     value: Binding(
-                        get: { Double(periph.randomness) },
-                        set: { periph.randomness = Int($0) }
+                        get: { Double(server.randomness) },
+                        set: { server.randomness = Int($0) }
                     ),
                     range: 0...100,
                     step: 1,
@@ -270,8 +459,8 @@ struct SimulationControlsCard: View {
                 MetricSlider(
                     title: "Increment",
                     value: Binding(
-                        get: { Double(periph.increment) },
-                        set: { periph.increment = Int($0) }
+                        get: { Double(server.increment) },
+                        set: { server.increment = Int($0) }
                     ),
                     range: 1...100,
                     step: 1,
@@ -299,8 +488,10 @@ struct SimulationControlsCard: View {
     }
 }
 
-struct LiveMetricsCard: View {
-    @ObservedObject var periph: PeripheralManager
+// MARK: - LiveMetricsCard
+
+struct LiveMetricsCard<S: BroadcastServer>: View {
+    @ObservedObject var server: S
     @State private var totalPower: Double = 0
     @State private var totalCadence: Double = 0
     @State private var totalSpeed: Double = 0
@@ -308,7 +499,7 @@ struct LiveMetricsCard: View {
     @State private var distance: Double = 0
     @State private var elapsedTime: TimeInterval = 0
     @State private var startTime = Date()
-    @State private var timer: Timer?
+    private let ticker = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -320,7 +511,7 @@ struct LiveMetricsCard: View {
                 MetricRow(
                     icon: "speedometer",
                     title: "Speed",
-                    value: String(format: "%.1f", periph.stats.speedKmh),
+                    value: String(format: "%.1f", server.stats.speedKmh),
                     unit: "km/h",
                     color: .green
                 )
@@ -328,17 +519,25 @@ struct LiveMetricsCard: View {
                 MetricRow(
                     icon: "bolt.fill",
                     title: "Power",
-                    value: "\(periph.stats.powerW)",
+                    value: "\(server.stats.powerW)",
                     unit: "W",
-                    color: powerColor(for: periph.stats.powerW)
+                    color: powerColor(for: server.stats.powerW)
                 )
 
                 MetricRow(
                     icon: "arrow.triangle.2.circlepath",
                     title: "Cadence",
-                    value: "\(periph.stats.cadenceRpm)",
+                    value: "\(server.stats.cadenceRpm)",
                     unit: "rpm",
                     color: .blue
+                )
+
+                MetricRow(
+                    icon: "heart.fill",
+                    title: "Heart Rate",
+                    value: "\(server.stats.heartRateBpm)",
+                    unit: "bpm",
+                    color: .red
                 )
 
                 Divider()
@@ -384,7 +583,7 @@ struct LiveMetricsCard: View {
                         Label("Gear", systemImage: "gearshape.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(periph.stats.gear)
+                        Text(server.stats.gear)
                             .font(.system(.callout, design: .monospaced, weight: .medium))
                     }
 
@@ -392,7 +591,7 @@ struct LiveMetricsCard: View {
                         Label("Grade", systemImage: "arrow.up.right")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(String(format: "%.1f%%", periph.stats.gradePercent))
+                        Text(String(format: "%.1f%%", server.stats.gradePercent))
                             .font(.system(.callout, design: .monospaced, weight: .medium))
                     }
 
@@ -406,7 +605,7 @@ struct LiveMetricsCard: View {
                 }
 
                 // Power Zone Distribution
-                PowerZoneBar(currentPower: periph.stats.powerW)
+                PowerZoneBar(currentPower: server.stats.powerW)
 
                 // Extra spacing to match Simulation Controls height
                 Spacer()
@@ -419,22 +618,14 @@ struct LiveMetricsCard: View {
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
         .onAppear {
             startTime = Date()
-            // Reset totals when view appears
             totalPower = 0
             totalCadence = 0
             totalSpeed = 0
             sampleCount = 0
             distance = 0
-
-            // Start timer to update averages
-            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                Task { @MainActor in
-                    updateAverages()
-                }
-            }
         }
-        .onDisappear {
-            timer?.invalidate()
+        .onReceive(ticker) { _ in
+            updateAverages()
         }
     }
 
@@ -452,13 +643,13 @@ struct LiveMetricsCard: View {
         elapsedTime = Date().timeIntervalSince(startTime)
 
         // Accumulate totals for true average calculation
-        totalPower += Double(periph.stats.powerW)
-        totalCadence += Double(periph.stats.cadenceRpm)
-        totalSpeed += periph.stats.speedKmh
+        totalPower += Double(server.stats.powerW)
+        totalCadence += Double(server.stats.cadenceRpm)
+        totalSpeed += server.stats.speedKmh
         sampleCount += 1
 
         // Update distance based on current speed (km/h converted to km/s)
-        distance += (periph.stats.speedKmh / 3600.0)
+        distance += (server.stats.speedKmh / 3600.0)
     }
 
     func formatTime(_ interval: TimeInterval) -> String {
@@ -472,6 +663,8 @@ struct LiveMetricsCard: View {
         }
     }
 }
+
+// MARK: - CompactMetric
 
 struct CompactMetric: View {
     let icon: String
@@ -496,14 +689,16 @@ struct CompactMetric: View {
     }
 }
 
-struct PerformanceGraphCard: View {
-    @ObservedObject var periph: PeripheralManager
+// MARK: - PerformanceGraphCard
+
+struct PerformanceGraphCard<S: BroadcastServer>: View {
+    @ObservedObject var server: S
     @State private var powerHistory: [Double] = Array(repeating: 0, count: 600)  // 10 minutes at 1 sample/sec
     @State private var cadenceHistory: [Double] = Array(repeating: 0, count: 600)
     @State private var speedHistory: [Double] = Array(repeating: 0, count: 600)
     @State private var selectedMetric = 0 // 0: Power, 1: Cadence, 2: Speed
-    @State private var timer: Timer?
     @State private var updateTrigger = false
+    private let ticker = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -668,29 +863,21 @@ struct PerformanceGraphCard: View {
         .frame(maxWidth: .infinity)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-        .onAppear {
-            // Start timer to update graph
-            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                Task { @MainActor in
-                    updateHistory()
-                }
-            }
-        }
-        .onDisappear {
-            timer?.invalidate()
+        .onReceive(ticker) { _ in
+            updateHistory()
         }
     }
 
     func updateHistory() {
         // Remove oldest value and add new one
         powerHistory.removeFirst()
-        powerHistory.append(Double(periph.stats.powerW))
+        powerHistory.append(Double(server.stats.powerW))
 
         cadenceHistory.removeFirst()
-        cadenceHistory.append(Double(periph.stats.cadenceRpm))
+        cadenceHistory.append(Double(server.stats.cadenceRpm))
 
         speedHistory.removeFirst()
-        speedHistory.append(periph.stats.speedKmh)
+        speedHistory.append(server.stats.speedKmh)
 
         // Toggle to force UI update
         updateTrigger.toggle()
@@ -725,9 +912,9 @@ struct PerformanceGraphCard: View {
 
     func currentValueText() -> String {
         switch selectedMetric {
-        case 0: return "\(periph.stats.powerW) W"
-        case 1: return "\(periph.stats.cadenceRpm) rpm"
-        case 2: return String(format: "%.1f km/h", periph.stats.speedKmh)
+        case 0: return "\(server.stats.powerW) W"
+        case 1: return "\(server.stats.cadenceRpm) rpm"
+        case 2: return String(format: "%.1f km/h", server.stats.speedKmh)
         default: return ""
         }
     }
@@ -761,6 +948,8 @@ struct PerformanceGraphCard: View {
         }
     }
 }
+
+// MARK: - PowerZoneBar
 
 struct PowerZoneBar: View {
     let currentPower: Int
@@ -805,6 +994,8 @@ struct PowerZoneBar: View {
         }
     }
 }
+
+// MARK: - ActivityFeedCard
 
 struct ActivityFeedCard: View {
     let eventLog: [String]
@@ -884,6 +1075,8 @@ struct ActivityFeedCard: View {
     }
 }
 
+// MARK: - ServiceToggle
+
 struct ServiceToggle: View {
     let title: String
     let icon: String
@@ -915,6 +1108,8 @@ struct ServiceToggle: View {
     }
 }
 
+// MARK: - FieldToggle
+
 struct FieldToggle: View {
     let title: String
     @Binding var isOn: Bool
@@ -927,6 +1122,8 @@ struct FieldToggle: View {
         .toggleStyle(.checkbox)
     }
 }
+
+// MARK: - MetricSlider
 
 struct MetricSlider: View {
     let title: String
@@ -984,6 +1181,8 @@ struct MetricSlider: View {
     }
 }
 
+// MARK: - MetricRow
+
 struct MetricRow: View {
     let icon: String
     let title: String
@@ -1033,6 +1232,8 @@ struct MetricRow: View {
         }
     }
 }
+
+// MARK: - ProgressBar
 
 struct ProgressBar: View {
     let value: Double

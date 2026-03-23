@@ -37,6 +37,9 @@
 		1A00000E000000000000000F /* PowerProfileMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000E000000000000000F /* PowerProfileMode.swift */; };
 		1A00000F0000000000000010 /* ZWOParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000010 /* ZWOParser.swift */; };
 		1A00000F0000000000000011 /* RampTestMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000011 /* RampTestMode.swift */; };
+		1A00000F0000000000000012 /* DIRCONProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000012 /* DIRCONProtocol.swift */; };
+		1A00000F0000000000000013 /* DIRCONServiceTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000013 /* DIRCONServiceTable.swift */; };
+		1A00000F0000000000000014 /* DIRCONServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A10000F0000000000000014 /* DIRCONServer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -72,6 +75,9 @@
 		1A10000E000000000000000F /* PowerProfileMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PowerProfileMode.swift; path = Packages/SwiftCheetahCore/PowerProfileMode.swift; sourceTree = SOURCE_ROOT; };
 		1A10000F0000000000000010 /* ZWOParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ZWOParser.swift; path = Packages/SwiftCheetahCore/ZWOParser.swift; sourceTree = SOURCE_ROOT; };
 		1A10000F0000000000000011 /* RampTestMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RampTestMode.swift; path = Packages/SwiftCheetahCore/RampTestMode.swift; sourceTree = SOURCE_ROOT; };
+		1A10000F0000000000000012 /* DIRCONProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DIRCONProtocol.swift; path = Packages/SwiftCheetahBLE/DIRCONProtocol.swift; sourceTree = SOURCE_ROOT; };
+		1A10000F0000000000000013 /* DIRCONServiceTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DIRCONServiceTable.swift; path = Packages/SwiftCheetahBLE/DIRCONServiceTable.swift; sourceTree = SOURCE_ROOT; };
+		1A10000F0000000000000014 /* DIRCONServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DIRCONServer.swift; path = Packages/SwiftCheetahBLE/DIRCONServer.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +131,9 @@
 				1A10000E000000000000000F /* PowerProfileMode.swift */,
 				1A10000F0000000000000010 /* ZWOParser.swift */,
 				1A10000F0000000000000011 /* RampTestMode.swift */,
+				1A10000F0000000000000012 /* DIRCONProtocol.swift */,
+				1A10000F0000000000000013 /* DIRCONServiceTable.swift */,
+				1A10000F0000000000000014 /* DIRCONServer.swift */,
 				1A10000B0000000000000001 /* Info.plist */,
 				1A10000B0000000000000002 /* Assets.xcassets */,
 			);
@@ -231,6 +240,9 @@
 				1A00000E000000000000000F /* PowerProfileMode.swift in Sources */,
 				1A00000F0000000000000010 /* ZWOParser.swift in Sources */,
 				1A00000F0000000000000011 /* RampTestMode.swift in Sources */,
+				1A00000F0000000000000012 /* DIRCONProtocol.swift in Sources */,
+				1A00000F0000000000000013 /* DIRCONServiceTable.swift in Sources */,
+				1A00000F0000000000000014 /* DIRCONServer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
